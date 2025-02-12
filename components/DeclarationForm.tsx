@@ -202,16 +202,17 @@ export function DeclarationForm({ selectedDeclaration }: DeclarationFormProps) {
 
   useEffect(() => {
     if (selectedDeclaration) {
-      
+
       setValue('unionStartDate', selectedDeclaration.unionStartDate);
 
       Object.entries(selectedDeclaration.firstPerson).forEach(([key, value]) => {
-        setValue(`firstPerson.${key}`, value);
-      });
+        setValue(`firstPerson.${key as keyof typeof selectedDeclaration.firstPerson}`, value);
+      });      
 
       Object.entries(selectedDeclaration.secondPerson).forEach(([key, value]) => {
-        setValue(`secondPerson.${key}`, value);
+        setValue(`secondPerson.${key as keyof typeof selectedDeclaration.secondPerson}`, value);
       });
+      
     }
   }, [selectedDeclaration, setValue]);
 
