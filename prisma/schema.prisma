@@ -1,0 +1,63 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Declaration {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  date          DateTime
+  city          String
+  state         String
+  unionStartDate DateTime
+  propertyRegime String
+  registrarName String
+  pactDate      DateTime?
+  pactOffice    String?
+  pactBook      String?
+  pactPage      String?
+  pactTerm      String?
+  firstPerson   Person   @relation("FirstPerson", fields: [firstPersonId], references: [id])
+  firstPersonId String
+  secondPerson  Person   @relation("SecondPerson", fields: [secondPersonId], references: [id])
+  secondPersonId String
+
+  @@map("declarations")
+}
+
+model Person {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  name          String
+  nationality   String
+  civilStatus   String
+  birthDate     DateTime
+  birthPlace    String
+  profession    String
+  rg            String
+  cpf           String   @unique
+  address       String
+  email         String
+  phone         String
+  fatherName    String
+  motherName    String
+  registryOffice String
+  registryBook   String
+  registryPage   String
+  registryTerm   String
+  divorceDate    DateTime?
+  newName        String?
+  firstPersonDeclarations  Declaration[] @relation("FirstPerson")
+  secondPersonDeclarations Declaration[] @relation("SecondPerson")
+
+  @@map("persons")
+}
