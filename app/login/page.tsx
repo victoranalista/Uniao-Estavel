@@ -32,12 +32,10 @@ export default function Login() {
         throw new Error('Usuário e senha são obrigatórios');
       }
 
-      // For development, skip the API call and redirect directly
-      // This simulates a successful login while the backend is being set up
+      // Parte que comento
       router.push('/dashboard');
       return;
 
-      /* Commented out until backend is ready
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,7 +53,8 @@ export default function Login() {
       } else {
         throw new Error(data.message);
       }
-      */
+
+      
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao fazer login';
       console.error('Login error:', errorMessage);

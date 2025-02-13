@@ -5,11 +5,12 @@ import { DeclarationForm } from "@/components/DeclarationForm";
 import { ClientSearch } from "@/components/ClientSearch";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { Client } from "@/components/ClientSearch"; 
 
 export default function NewRegistration() {
-  const [selectedClient, setSelectedClient] = useState(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null); 
 
-  const handleClientSelect = (client: any) => {
+  const handleClientSelect = (client: Client) => {
     setSelectedClient(client);
   };
 

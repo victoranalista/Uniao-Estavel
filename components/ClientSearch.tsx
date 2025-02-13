@@ -5,7 +5,7 @@ import { Command } from "cmdk";
 import { Search } from 'lucide-react';
 import { toast } from "sonner";
 
-interface Client {
+export interface Client {
   id: string;
   firstName: string;
   lastName: string;
