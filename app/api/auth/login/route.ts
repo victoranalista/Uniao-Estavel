@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+// Make the route dynamic
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
@@ -7,6 +8,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { username, password } = body;
 
+    // Basic validation
     if (!username || !password) {
       return NextResponse.json({
         success: false,
@@ -14,6 +16,7 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
+    // Temporary: Accept any non-empty credentials for testing
     if (username.trim() && password.trim()) {
       return NextResponse.json({
         success: true,

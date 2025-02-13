@@ -1,69 +1,140 @@
 "use client";
+
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Upload } from 'lucide-react';
-import { parseXMLSeals } from '@/utils/bookControl';
+import { Search } from 'lucide-react';
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+
+interface Declaration {
+  id: string;
+  firstPerson: { name: string; cpf: string };
+  secondPerson: { name: string; cpf: string };
+  date: string;
+  registryBook: string;
+  registryPage: string;
+  registryTerm: string;
+}
 
 export default function Update() {
-  const [protocolNumber, setProtocolNumber] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [seals, setSeals] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [declaration, setDeclaration] = useState<Declaration | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [averbation, setAverbation] = useState('');
+
   const handleSearch = async () => {
+    if (!searchTerm) {
+      toast.error('Digite um CPF ou protocolo para buscar');
+      return;
+    }
+
     setIsSearching(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch(`/api/registrations?search=${encodeURIComponent(searchTerm)}`);
+      if (!response.ok) {
+        throw new Error('Erro ao buscar declaração');
+      }
+      
+      const data = await response.json();
+      if (data.length === 0) {
+        toast.error('Nenhuma declaração encontrada');
+        setDeclaration(null);
+        return;
+      }
+
+      setDeclaration(data[0]);
+      toast.success('Declaração encontrada');
     } catch (error) {
       console.error('Search error:', error);
+      toast.error('Erro ao buscar declaração');
     } finally {
       setIsSearching(false);
     }
   };
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+
+  const handleUpdate = async () => {
+    if (!declaration) return;
+
+    setIsUpdating(true);
     try {
-      const text = await file.text();
-      if (!text.includes('loteDeSelos')) {
-        throw new Error('Arquivo XML inválido. Deve conter lote de selos.');
-      }
-      const newSeals = parseXMLSeals(text);
-      if (newSeals.length === 0) {
-        throw new Error('Nenhum selo encontrado no arquivo.');
-      }
-      setSeals(prevSeals => {
-        const uniqueNewSeals = newSeals.filter(seal => !prevSeals.includes(seal));
-        return [...prevSeals, ...uniqueNewSeals];
+      const response = await fetch(`/api/registrations/${declaration.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...declaration,
+          averbation: averbation.trim()
+        }),
       });
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao processar arquivo');
+
+      if (!response.ok) {
+        throw new Error('Erro ao atualizar registro');
+      }
+
+      // Generate updated PDF with averbation
+      const pdfResponse = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...declaration,
+          averbation: averbation.trim()
+        }),
+      });
+
+      if (!pdfResponse.ok) {
+        throw new Error('Erro ao gerar PDF atualizado');
+      }
+
+      const blob = await pdfResponse.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'declaracao-atualizada.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Registro atualizado com sucesso');
+      setAverbation('');
+      handleSearch(); // Refresh declaration data
+    } catch (error) {
+      console.error('Update error:', error);
+      toast.error('Erro ao atualizar registro');
+    } finally {
+      setIsUpdating(false);
     }
   };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-black to-gray-900">
       <div className="max-w-7xl mx-auto p-6">
         <h1 className="text-3xl font-bold text-white mb-8">
           Atualização de Registro
         </h1>
+
         <Card className="p-6 mb-8">
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Número de Protocolo
+                Número de Protocolo ou CPF
               </label>
               <Input
                 type="text"
-                placeholder="Digite o número do protocolo"
-                value={protocolNumber}
-                onChange={(e) => setProtocolNumber(e.target.value)}
+                placeholder="Digite o número do protocolo ou CPF"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             <Button
               onClick={handleSearch}
-              disabled={isSearching || !protocolNumber}
+              disabled={isSearching || !searchTerm}
               className="w-full bg-gray-200 hover:bg-gray-300"
             >
               {isSearching ? (
@@ -77,48 +148,58 @@ export default function Update() {
             </Button>
           </div>
         </Card>
-        <Card className="p-6 mb-8">
-          <h2 className="text-xl font-bold mb-4">Carregar Lote de Selos</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-center w-full">
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                  <p className="mb-2 text-sm text-gray-500">
-                    <span className="font-semibold">Clique para carregar</span> ou arraste o arquivo XML
-                  </p>
-                  <p className="text-xs text-gray-500">Arquivo XML de lote de selos</p>
+
+        {declaration && (
+          <Card className="p-6 mb-8">
+            <h2 className="text-xl font-semibold mb-4">Registro Encontrado</h2>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p><strong>Declarantes:</strong></p>
+                  <p>{declaration.firstPerson.name} e {declaration.secondPerson.name}</p>
                 </div>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".xml"
-                  onChange={handleFileUpload}
-                />
-              </label>
+                <div>
+                  <p><strong>Data:</strong></p>
+                  <p>{new Date(declaration.date).toLocaleDateString('pt-BR')}</p>
+                </div>
+                <div>
+                  <p><strong>Livro:</strong></p>
+                  <p>{declaration.registryBook}</p>
+                </div>
+                <div>
+                  <p><strong>Folha:</strong></p>
+                  <p>{declaration.registryPage}</p>
+                </div>
+                <div>
+                  <p><strong>Termo:</strong></p>
+                  <p>{declaration.registryTerm}</p>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Averbação
+                  </label>
+                  <Textarea
+                    placeholder="Digite o texto da averbação..."
+                    value={averbation}
+                    onChange={(e) => setAverbation(e.target.value)}
+                    className="min-h-[100px]"
+                  />
+                </div>
+
+                <Button
+                  onClick={handleUpdate}
+                  disabled={isUpdating || !averbation.trim()}
+                  className="w-full bg-gray-200 hover:bg-gray-300"
+                >
+                  {isUpdating ? "Atualizando..." : "Atualizar Registro"}
+                </Button>
+              </div>
             </div>
-            {error && (
-              <div className="p-4 text-sm text-red-700 bg-red-100 rounded-lg">
-                {error}
-              </div>
-            )}
-            {seals.length > 0 && (
-              <div>
-                <h3 className="font-semibold mb-2">Selos Disponíveis ({seals.length})</h3>
-                <div className="max-h-48 overflow-y-auto bg-gray-50 rounded-lg p-4">
-                  {seals.map((seal, index) => (
-                    <div key={seal} className="text-sm text-gray-600 mb-1">
-                      {index + 1}. {seal}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </Card>
-        <p className="text-center text-gray-600">
-          Digite o número de protocolo para buscar e atualizar o registro.
-        </p>
+          </Card>
+        )}
       </div>
     </div>
   );
