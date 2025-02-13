@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Command } from "cmdk";
 import { Search } from 'lucide-react';
+import { toast } from "sonner";
 
 interface Client {
   id: string;
@@ -10,6 +11,47 @@ interface Client {
   lastName: string;
   email: string;
   phone: string;
+  declaration?: {
+    unionStartDate: string;
+    firstPerson: {
+      name: string;
+      nationality: string;
+      civilStatus: string;
+      birthDate: string;
+      birthPlace: string;
+      profession: string;
+      rg: string;
+      cpf: string;
+      address: string;
+      email: string;
+      phone: string;
+      fatherName: string;
+      motherName: string;
+      registryOffice: string;
+      registryBook: string;
+      registryPage: string;
+      registryTerm: string;
+    };
+    secondPerson: {
+      name: string;
+      nationality: string;
+      civilStatus: string;
+      birthDate: string;
+      birthPlace: string;
+      profession: string;
+      rg: string;
+      cpf: string;
+      address: string;
+      email: string;
+      phone: string;
+      fatherName: string;
+      motherName: string;
+      registryOffice: string;
+      registryBook: string;
+      registryPage: string;
+      registryTerm: string;
+    };
+  };
 }
 
 interface ClientSearchProps {
@@ -23,7 +65,7 @@ export function ClientSearch({ onClientSelect }: ClientSearchProps) {
 
   useEffect(() => {
     const fetchClients = async () => {
-      if (!search) {
+      if (!search || search.length < 3) {
         setClients([]);
         return;
       }
@@ -31,11 +73,14 @@ export function ClientSearch({ onClientSelect }: ClientSearchProps) {
       setLoading(true);
       try {
         const response = await fetch(`/api/acuity/clients?search=${encodeURIComponent(search)}`);
-        if (!response.ok) throw new Error('Failed to fetch clients');
+        if (!response.ok) {
+          throw new Error('Failed to fetch clients');
+        }
         const data = await response.json();
-        setClients(data);
+        setClients(data.data || []);
       } catch (error) {
         console.error('Error fetching clients:', error);
+        toast.error('Erro ao buscar clientes do Acuity');
       } finally {
         setLoading(false);
       }
@@ -44,6 +89,21 @@ export function ClientSearch({ onClientSelect }: ClientSearchProps) {
     const debounce = setTimeout(fetchClients, 300);
     return () => clearTimeout(debounce);
   }, [search]);
+
+  const handleSelect = async (clientId: string) => {
+    try {
+      const response = await fetch(`/api/acuity/mapping?clientId=${clientId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch client details');
+      }
+      const data = await response.json();
+      onClientSelect(data.data);
+      toast.success('Dados do cliente importados com sucesso');
+    } catch (error) {
+      console.error('Error fetching client details:', error);
+      toast.error('Erro ao importar dados do cliente');
+    }
+  };
 
   return (
     <div className="relative">
@@ -54,10 +114,10 @@ export function ClientSearch({ onClientSelect }: ClientSearchProps) {
             value={search}
             onValueChange={setSearch}
             className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="Buscar cliente..."
+            placeholder="Digite o nome ou email do cliente..."
           />
         </div>
-        {search && (
+        {search.length >= 3 && (
           <Command.List className="max-h-[300px] overflow-y-auto p-2">
             {loading ? (
               <Command.Loading>Buscando clientes...</Command.Loading>
@@ -66,7 +126,7 @@ export function ClientSearch({ onClientSelect }: ClientSearchProps) {
                 <Command.Item
                   key={client.id}
                   value={`${client.firstName} ${client.lastName}`}
-                  onSelect={() => onClientSelect(client)}
+                  onSelect={() => handleSelect(client.id)}
                   className="flex items-center px-2 py-1.5 text-sm rounded-sm cursor-pointer hover:bg-accent"
                 >
                   <div className="flex flex-col">

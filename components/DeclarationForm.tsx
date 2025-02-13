@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, forwardRef } from 'react';
+
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -14,6 +15,7 @@ import {
   REGISTRO_CARTORIO
 } from '@/utils/constants';
 import { Alert } from "@/components/ui/alert";
+import { toast } from "sonner";
 
 const personSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -55,28 +57,14 @@ const declarationSchema = z.object({
 });
 
 type FormData = z.infer<typeof declarationSchema>;
-interface FormFieldProps {
-  label: string;
-  register: any;
-  name: string;
-  error?: string;
-  type?: string;
-  required?: boolean;
-  mask?: string;
-  options?: string[];
-  onSelect?: (value: string) => void;
-  value?: string;
-  disabled?: boolean;
-}
 
 interface DeclarationFormProps {
-  selectedDeclaration?: {
+  initialData?: {
     unionStartDate: string;
     firstPerson: {
       name: string;
       nationality: string;
       civilStatus: string;
-      typeRegistry: string;
       birthDate: string;
       birthPlace: string;
       profession: string;
@@ -96,7 +84,6 @@ interface DeclarationFormProps {
       name: string;
       nationality: string;
       civilStatus: string;
-      typeRegistry: string;
       birthDate: string;
       birthPlace: string;
       profession: string;
@@ -112,21 +99,24 @@ interface DeclarationFormProps {
       registryPage: string;
       registryTerm: string;
     };
-  } | null;
+  };
+  onSubmit: (data: FormData) => Promise<void>;
 }
 
-const MaskedInput = forwardRef<HTMLInputElement, any>((props, ref) => (
-  <InputMask {...props} ref={ref}>
-    {(inputProps: any) => (
-      <input
-        {...inputProps}
-        type={props.type}
-        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-      />
-    )}
-  </InputMask>
-));
-MaskedInput.displayName = 'MaskedInput';
+interface FormFieldProps {
+  label: string;
+  register: any;
+  name: string;
+  error?: string;
+  type?: string;
+  required?: boolean;
+  mask?: string;
+  options?: string[];
+  onSelect?: (value: string) => void;
+  value?: string;
+  disabled?: boolean;
+}
+
 const FormField = ({
   label,
   register,
@@ -162,14 +152,16 @@ const FormField = ({
       </div>
     );
   }
+
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700">{label}</label>
       {mask ? (
-        <MaskedInput
+        <InputMask
           mask={mask}
           type={type}
           {...register(name)}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
           required={required}
         />
       ) : (
@@ -184,13 +176,12 @@ const FormField = ({
     </div>
   );
 };
-export function DeclarationForm({ selectedDeclaration }: DeclarationFormProps) {
+
+export function DeclarationForm({ initialData, onSubmit }: DeclarationFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [firstPersonAge, setFirstPersonAge] = useState<number | null>(null);
   const [secondPersonAge, setSecondPersonAge] = useState<number | null>(null);
-  const [selectedSeal, setSelectedSeal] = useState<string | null>(null);
-  const [seals, setSeals] = useState<string[]>([]);
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(declarationSchema),
@@ -201,20 +192,21 @@ export function DeclarationForm({ selectedDeclaration }: DeclarationFormProps) {
   });
 
   useEffect(() => {
-    if (selectedDeclaration) {
-
-      setValue('unionStartDate', selectedDeclaration.unionStartDate);
-
-      Object.entries(selectedDeclaration.firstPerson).forEach(([key, value]) => {
-        setValue(`firstPerson.${key as keyof typeof selectedDeclaration.firstPerson}`, value);
-      });      
-
-      Object.entries(selectedDeclaration.secondPerson).forEach(([key, value]) => {
-        setValue(`secondPerson.${key as keyof typeof selectedDeclaration.secondPerson}`, value);
+    if (initialData) {
+      setValue('unionStartDate', initialData.unionStartDate);
+      
+      Object.entries(initialData.firstPerson).forEach(([key, value]) => {
+        setValue(`firstPerson.${key as keyof typeof initialData.firstPerson}`, value);
       });
       
+      Object.entries(initialData.secondPerson).forEach(([key, value]) => {
+        setValue(`secondPerson.${key as keyof typeof initialData.secondPerson}`, value);
+      });
+      
+      handleBirthDateChange(initialData.firstPerson.birthDate, 'first');
+      handleBirthDateChange(initialData.secondPerson.birthDate, 'second');
     }
-  }, [selectedDeclaration, setValue]);
+  }, [initialData, setValue]);
 
   const calculateAge = (birthDate: string) => {
     const today = new Date();
@@ -226,6 +218,7 @@ export function DeclarationForm({ selectedDeclaration }: DeclarationFormProps) {
     }
     return age;
   };
+
   const handleBirthDateChange = (date: string, person: 'first' | 'second') => {
     const age = calculateAge(date);
     if (person === 'first') {
@@ -235,45 +228,22 @@ export function DeclarationForm({ selectedDeclaration }: DeclarationFormProps) {
     }
   };
 
-  const registrarName = watch('registrarName'); 
+  const registrarName = watch('registrarName');
   const selectedOfficialFunction = OFICIAIS_REGISTRADORES[registrarName] || 'Oficial Registrador';
 
-  const handleCitySelect = (cityName: string) => {
-    const city = MUNICIPIOS_BRASIL.find(m => m.nome === cityName);
-    if (city) {
-      setValue('city', city.uf);
-    }
-  };
-  const onSubmit = async (data: FormData) => {
+  const handleFormSubmit = async (data: FormData) => {
     setIsSubmitting(true);
     setError(null);
     try {
-      const response = await fetch('/api/generate-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        throw new Error('Erro ao gerar o PDF. Por favor, tente novamente.');
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'declaracao-uniao-estavel.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      await onSubmit(data);
     } catch (error) {
       console.error('Error:', error);
-      setError(error instanceof Error ? error.message : 'Erro ao gerar o PDF');
+      setError(error instanceof Error ? error.message : 'Erro ao processar a solicitação');
     } finally {
       setIsSubmitting(false);
     }
   };
+
   const renderPersonFields = (prefix: 'firstPerson' | 'secondPerson', title: string) => (
     <div className="space-y-4 bg-white p-6 rounded-lg shadow-sm">
       <h2 className="text-xl font-semibold border-b pb-2">{title}</h2>
@@ -318,7 +288,6 @@ export function DeclarationForm({ selectedDeclaration }: DeclarationFormProps) {
           register={register}
           name={`${prefix}.birthPlace`}
           options={MUNICIPIOS_BRASIL.map(m => m.nome)}
-          onSelect={handleCitySelect}
           error={errors[prefix]?.birthPlace?.message}
         />
         <FormField
@@ -415,8 +384,8 @@ export function DeclarationForm({ selectedDeclaration }: DeclarationFormProps) {
     </div>
   );
 
-return (
-    <form onSubmit={handleSubmit(onSubmit)} className="max-w-7xl mx-auto p-6 space-y-8">
+  return (
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="max-w-7xl mx-auto p-6 space-y-8">
       <div className="bg-white p-6 rounded-lg shadow-sm space-y-4 mb-8">
         <h2 className="text-xl font-semibold border-b pb-2">Informações da Declaração</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -443,6 +412,7 @@ return (
           />
         </div>
       </div>
+
       {(firstPersonAge !== null && firstPersonAge < 18) && (
         <Alert variant="default">
           {firstPersonAge < 16 ?
@@ -450,8 +420,10 @@ return (
             "Pessoa entre 16 e 18 anos precisa de autorização dos pais ou responsáveis."}
         </Alert>
       )}
+
       {renderPersonFields('firstPerson', 'Primeiro Declarante')}
       {renderPersonFields('secondPerson', 'Segundo Declarante')}
+
       <div className="bg-white p-6 rounded-lg shadow-sm space-y-4">
         <h2 className="text-xl font-semibold border-b pb-2">Informações da União</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -520,15 +492,15 @@ return (
             options={Object.keys(OFICIAIS_REGISTRADORES)}
             error={errors.registrarName?.message}
           />
-          <p className="text-sm text-gray-600">{selectedOfficialFunction}</p>
         </div>
       </div>
+
       <button
         type="submit"
         disabled={isSubmitting}
         className="w-full bg-primary text-white py-3 px-4 rounded-lg hover:bg-primary-dark disabled:opacity-50 font-medium text-lg"
       >
-        {isSubmitting ? 'Gerando PDF...' : 'Gerar Declaração'}
+        {isSubmitting ? 'Salvando...' : 'Salvar Registro'}
       </button>
     </form>
   );
