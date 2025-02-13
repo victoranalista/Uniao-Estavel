@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { getServerSession } from "next-auth/next";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
 import { z } from "zod";
 
 const userSchema = z.object({
@@ -13,7 +14,7 @@ const userSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== "ADMIN") {
       return NextResponse.json(
         { error: "Não autorizado" },
@@ -63,12 +64,13 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession();
-    if (!session?.user || !["ADMIN", "MANAGER"].includes(session.user.role)) {
-      return NextResponse.json(
-        { error: "Não autorizado" },
-        { status: 401 }
-      );
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user || !session.user.role) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+    if (!["ADMIN", "MANAGER"].includes(session.user.role)) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
 
     const users = await prisma.user.findMany({

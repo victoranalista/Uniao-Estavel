@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { AcuityService, AcuityError } from '@/lib/acuity';
 import { z } from 'zod';
 
-// Query parameters validation schema
+export const dynamic = 'force-dynamic';
+
 const querySchema = z.object({
   search: z.string().optional(),
   page: z.string().optional().transform(val => val ? parseInt(val, 10) : 1),
@@ -13,7 +14,6 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     
-    // Validate and parse query parameters
     const { search, page, limit } = querySchema.parse({
       search: searchParams.get('search'),
       page: searchParams.get('page'),
@@ -23,7 +23,6 @@ export async function GET(request: Request) {
     const acuityService = AcuityService.getInstance();
     const clients = await acuityService.getClients(search);
 
-    // Map and filter clients
     const mappedClients = clients
       .map(client => {
         try {
@@ -43,7 +42,6 @@ export async function GET(request: Request) {
         ) : true)
       );
 
-    // Implement pagination
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
     const paginatedClients = mappedClients.slice(startIndex, endIndex);

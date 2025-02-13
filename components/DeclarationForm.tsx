@@ -56,7 +56,7 @@ const declarationSchema = z.object({
   registrarName: z.string().min(1, 'Nome do oficial é obrigatório'),
 });
 
-type FormData = z.infer<typeof declarationSchema>;
+export type FormData = z.infer<typeof declarationSchema>;
 
 interface DeclarationFormProps {
   initialData?: {
