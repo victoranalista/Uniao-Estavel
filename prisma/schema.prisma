@@ -41,13 +41,13 @@ model Declaration {
   pactBook       String?
   pactPage       String?
   pactTerm       String?
-  typeRegistry   String?  
+  typeRegistry   String?
   firstPersonId  String
   secondPersonId String
   firstPerson    Person    @relation("FirstPerson", fields: [firstPersonId], references: [id])
   secondPerson   Person    @relation("SecondPerson", fields: [secondPersonId], references: [id])
   history        DeclarationHistory[]
-    @@map("declarations")
+  @@map("declarations")
 }
 
 
@@ -83,7 +83,7 @@ model Person {
 model DeclarationHistory {
   id             String      @id @default(cuid())
   declarationId  String
-  type           String      // 'UPDATE' or 'SECOND_COPY'
+  type           String     
   description    String
   averbation     String?
   updatedBy      String
@@ -92,3 +92,4 @@ model DeclarationHistory {
 
   @@map("declaration_history")
 }
+

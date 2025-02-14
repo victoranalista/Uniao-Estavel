@@ -88,7 +88,6 @@ export async function PUT(
         },
       });
 
-
       await tx.declarationHistory.create({
         data: {
           declarationId: params.id,

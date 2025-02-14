@@ -71,8 +71,8 @@ interface Declaration {
     averbation?: string;
     updatedBy: string;
     updatedAt: string;
-  }> | null;
-}
+  }>;
+
 
 export default function Update() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -124,7 +124,8 @@ export default function Update() {
         },
         body: JSON.stringify({
           ...formData,
-          averbation: averbation.trim(),
+
+          averbation: averbation.trim()
         }),
       });
 
@@ -132,7 +133,6 @@ export default function Update() {
         throw new Error('Erro ao atualizar registro');
       }
 
-      // Gerando o PDF
       const pdfResponse = await fetch('/api/generate-pdf', {
         method: 'POST',
         headers: {
@@ -140,7 +140,8 @@ export default function Update() {
         },
         body: JSON.stringify({
           ...formData,
-          averbation: averbation.trim(),
+          averbation: averbation.trim()
+
         }),
       });
 
@@ -160,7 +161,8 @@ export default function Update() {
 
       toast.success('Registro atualizado com sucesso');
       setAverbation('');
-      handleSearch(); // Atualiza os dados depois de salvar
+
+      handleSearch();
     } catch (error) {
       console.error('Update error:', error);
       toast.error('Erro ao atualizar registro');
