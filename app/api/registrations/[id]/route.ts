@@ -27,7 +27,22 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(declaration);
+    return NextResponse.json({
+      ...declaration,
+      date: declaration.date.toISOString(),
+      unionStartDate: declaration.unionStartDate.toISOString(),
+      pactDate: declaration.pactDate ? declaration.pactDate.toISOString() : null,
+      firstPerson: {
+        ...declaration.firstPerson,
+        birthDate: declaration.firstPerson.birthDate.toISOString(),
+        divorceDate: declaration.firstPerson.divorceDate ? declaration.firstPerson.divorceDate.toISOString() : null,
+      },
+      secondPerson: {
+        ...declaration.secondPerson,
+        birthDate: declaration.secondPerson.birthDate.toISOString(),
+        divorceDate: declaration.secondPerson.divorceDate ? declaration.secondPerson.divorceDate.toISOString() : null,
+      },
+    });
   } catch (error) {
     console.error('Failed to fetch declaration:', error);
     return NextResponse.json(
@@ -53,7 +68,7 @@ export async function PUT(
     const body = await request.json();
     
     const declaration = await prisma.$transaction(async (tx) => {
-      // Update the declaration
+     
       const updatedDeclaration = await tx.declaration.update({
         where: { id: params.id },
         data: {
