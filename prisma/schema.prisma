@@ -47,6 +47,7 @@ model Declaration {
   firstPerson    Person    @relation("FirstPerson", fields: [firstPersonId], references: [id])
   secondPerson   Person    @relation("SecondPerson", fields: [secondPersonId], references: [id])
   history        DeclarationHistory[]
+    @@map("declarations")
 }
 
 
