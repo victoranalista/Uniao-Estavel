@@ -93,7 +93,7 @@ export default function Update() {
       if (!response.ok) {
         throw new Error('Erro ao buscar declaração');
       }
-      
+
       const data = await response.json();
       if (data.length === 0) {
         toast.error('Nenhuma declaração encontrada');
@@ -131,31 +131,34 @@ export default function Update() {
         throw new Error('Erro ao atualizar registro');
       }
 
-      // Generate updated PDF with averbation
-      const pdfResponse = await fetch('/api/generate-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          averbation: averbation.trim()
-        }),
-      });
+      // Verificar se a averbação foi inserida
+      if (averbation.trim()) {
+        // Gerar o PDF atualizado com a averbação
+        const pdfResponse = await fetch('/api/generate-pdf', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...formData,
+            averbation: averbation.trim()
+          }),
+        });
 
-      if (!pdfResponse.ok) {
-        throw new Error('Erro ao gerar PDF atualizado');
+        if (!pdfResponse.ok) {
+          throw new Error('Erro ao gerar PDF atualizado');
+        }
+
+        const blob = await pdfResponse.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'declaracao-atualizada.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
       }
-
-      const blob = await pdfResponse.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'declaracao-atualizada.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
 
       toast.success('Registro atualizado com sucesso');
       setAverbation('');
