@@ -45,7 +45,7 @@ model Declaration {
   secondPersonId String
   firstPerson    Person    @relation("FirstPerson", fields: [firstPersonId], references: [id])
   secondPerson   Person    @relation("SecondPerson", fields: [secondPersonId], references: [id])
-
+  history        DeclarationHistory[]
   @@map("declarations")
 }
 
@@ -76,4 +76,17 @@ model Person {
   secondPersonDeclarations Declaration[] @relation("SecondPerson")
 
   @@map("persons")
+}
+
+model DeclarationHistory {
+  id             String      @id @default(cuid())
+  declarationId  String
+  type           String      // 'UPDATE' or 'SECOND_COPY'
+  description    String
+  averbation     String?
+  updatedBy      String
+  updatedAt      DateTime    @default(now())
+  declaration    Declaration @relation(fields: [declarationId], references: [id])
+
+  @@map("declaration_history")
 }

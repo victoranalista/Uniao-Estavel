@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getServerSession } from "next-auth/next";
 
 export async function GET(
   request: Request,
@@ -11,6 +12,11 @@ export async function GET(
       include: {
         firstPerson: true,
         secondPerson: true,
+        history: {
+          orderBy: {
+            updatedAt: 'desc'
+          }
+        }
       },
     });
 
@@ -36,40 +42,64 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession();
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
-    const declaration = await prisma.declaration.update({
-      where: { id: params.id },
-      data: {
-        date: new Date(body.date),
-        city: body.city,
-        state: body.state,
-        unionStartDate: new Date(body.unionStartDate),
-        propertyRegime: body.propertyRegime,
-        registrarName: body.registrarName,
-        pactDate: body.pactDate ? new Date(body.pactDate) : null,
-        pactOffice: body.pactOffice,
-        pactBook: body.pactBook,
-        pactPage: body.pactPage,
-        pactTerm: body.pactTerm,
-        firstPerson: {
-          update: {
-            ...body.firstPerson,
-            birthDate: new Date(body.firstPerson.birthDate),
-            divorceDate: body.firstPerson.divorceDate ? new Date(body.firstPerson.divorceDate) : null,
+    
+    const declaration = await prisma.$transaction(async (tx) => {
+      // Update the declaration
+      const updatedDeclaration = await tx.declaration.update({
+        where: { id: params.id },
+        data: {
+          date: new Date(body.date),
+          city: body.city,
+          state: body.state,
+          unionStartDate: new Date(body.unionStartDate),
+          propertyRegime: body.propertyRegime,
+          registrarName: body.registrarName,
+          pactDate: body.pactDate ? new Date(body.pactDate) : null,
+          pactOffice: body.pactOffice,
+          pactBook: body.pactBook,
+          pactPage: body.pactPage,
+          pactTerm: body.pactTerm,
+          firstPerson: {
+            update: {
+              ...body.firstPerson,
+              birthDate: new Date(body.firstPerson.birthDate),
+              divorceDate: body.firstPerson.divorceDate ? new Date(body.firstPerson.divorceDate) : null,
+            },
+          },
+          secondPerson: {
+            update: {
+              ...body.secondPerson,
+              birthDate: new Date(body.secondPerson.birthDate),
+              divorceDate: body.secondPerson.divorceDate ? new Date(body.secondPerson.divorceDate) : null,
+            },
           },
         },
-        secondPerson: {
-          update: {
-            ...body.secondPerson,
-            birthDate: new Date(body.secondPerson.birthDate),
-            divorceDate: body.secondPerson.divorceDate ? new Date(body.secondPerson.divorceDate) : null,
-          },
+        include: {
+          firstPerson: true,
+          secondPerson: true,
         },
-      },
-      include: {
-        firstPerson: true,
-        secondPerson: true,
-      },
+      });
+
+      await tx.declarationHistory.create({
+        data: {
+          declarationId: params.id,
+          type: 'UPDATE',
+          description: 'Registro atualizado',
+          averbation: body.averbation,
+          updatedBy: session.user.email || 'Unknown',
+        },
+      });
+
+      return updatedDeclaration;
     });
 
     return NextResponse.json(declaration);
