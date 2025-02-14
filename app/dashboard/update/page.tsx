@@ -72,7 +72,7 @@ interface Declaration {
     updatedBy: string;
     updatedAt: string;
   }>;
-}
+};
 
 export default function Update() {
   const [searchTerm, setSearchTerm] = useState('');

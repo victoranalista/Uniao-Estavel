@@ -202,31 +202,8 @@ export function DeclarationForm({ initialData, onSubmit }: DeclarationFormProps)
       Object.entries(initialData.secondPerson).forEach(([key, value]) => {
         setValue(`secondPerson.${key as keyof typeof initialData.secondPerson}`, value);
       });
-      
-      handleBirthDateChange(initialData.firstPerson.birthDate, 'first');
-      handleBirthDateChange(initialData.secondPerson.birthDate, 'second');
     }
   }, [initialData, setValue]);
-
-  const calculateAge = (birthDate: string) => {
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  const handleBirthDateChange = (date: string, person: 'first' | 'second') => {
-    const age = calculateAge(date);
-    if (person === 'first') {
-      setFirstPersonAge(age);
-    } else {
-      setSecondPersonAge(age);
-    }
-  };
 
   const registrarName = watch('registrarName');
   const selectedOfficialFunction = OFICIAIS_REGISTRADORES[registrarName] || 'Oficial Registrador';
@@ -281,7 +258,6 @@ export function DeclarationForm({ initialData, onSubmit }: DeclarationFormProps)
           name={`${prefix}.birthDate`}
           type="date"
           error={errors[prefix]?.birthDate?.message}
-          onSelect={(date) => handleBirthDateChange(date, prefix === 'firstPerson' ? 'first' : 'second')}
         />
         <FormField
           label="Local de Nascimento"
@@ -412,14 +388,6 @@ export function DeclarationForm({ initialData, onSubmit }: DeclarationFormProps)
           />
         </div>
       </div>
-
-      {(firstPersonAge !== null && firstPersonAge < 18) && (
-        <Alert variant="default">
-          {firstPersonAge < 16 ?
-            "Pessoa menor de 16 anos não pode formalizar união estável." :
-            "Pessoa entre 16 e 18 anos precisa de autorização dos pais ou responsáveis."}
-        </Alert>
-      )}
 
       {renderPersonFields('firstPerson', 'Primeiro Declarante')}
       {renderPersonFields('secondPerson', 'Segundo Declarante')}
