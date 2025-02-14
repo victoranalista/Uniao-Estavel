@@ -7,15 +7,71 @@ import { Button } from "@/components/ui/button";
 import { Search } from 'lucide-react';
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { DeclarationForm } from "@/components/DeclarationForm";
 
 interface Declaration {
   id: string;
-  firstPerson: { name: string; cpf: string };
-  secondPerson: { name: string; cpf: string };
+  firstPerson: { 
+    name: string; 
+    cpf: string;
+    nationality: string;
+    civilStatus: string;
+    birthDate: string;
+    birthPlace: string;
+    profession: string;
+    rg: string;
+    address: string;
+    email: string;
+    phone: string;
+    fatherName: string;
+    motherName: string;
+    registryOffice: string;
+    registryBook: string;
+    registryPage: string;
+    registryTerm: string;
+    typeRegistry: string;
+  };
+  secondPerson: { 
+    name: string; 
+    cpf: string;
+    nationality: string;
+    civilStatus: string;
+    birthDate: string;
+    birthPlace: string;
+    profession: string;
+    rg: string;
+    address: string;
+    email: string;
+    phone: string;
+    fatherName: string;
+    motherName: string;
+    registryOffice: string;
+    registryBook: string;
+    registryPage: string;
+    registryTerm: string;
+    typeRegistry: string;
+  };
   date: string;
-  registryBook: string;
-  registryPage: string;
-  registryTerm: string;
+  city: string;
+  state: string;
+  unionStartDate: string;
+  propertyRegime: string;
+  registrarName: string;
+  pactDate?: string;
+  pactOffice?: string;
+  pactBook?: string;
+  pactPage?: string;
+  pactTerm?: string;
+  createdAt: string;
+  updatedAt: string;
+  history?: Array<{
+    id: string;
+    type: 'UPDATE' | 'SECOND_COPY';
+    description: string;
+    averbation?: string;
+    updatedBy: string;
+    updatedAt: string;
+  }>;
 }
 
 export default function Update() {
@@ -55,7 +111,7 @@ export default function Update() {
     }
   };
 
-  const handleUpdate = async () => {
+  const handleUpdate = async (formData: any) => {
     if (!declaration) return;
 
     setIsUpdating(true);
@@ -66,7 +122,7 @@ export default function Update() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...declaration,
+          ...formData,
           averbation: averbation.trim()
         }),
       });
@@ -75,14 +131,13 @@ export default function Update() {
         throw new Error('Erro ao atualizar registro');
       }
 
-      // Generate updated PDF with averbation
       const pdfResponse = await fetch('/api/generate-pdf', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...declaration,
+          ...formData,
           averbation: averbation.trim()
         }),
       });
@@ -103,7 +158,7 @@ export default function Update() {
 
       toast.success('Registro atualizado com sucesso');
       setAverbation('');
-      handleSearch(); // Refresh declaration data
+      handleSearch();
     } catch (error) {
       console.error('Update error:', error);
       toast.error('Erro ao atualizar registro');
@@ -150,32 +205,36 @@ export default function Update() {
         </Card>
 
         {declaration && (
-          <Card className="p-6 mb-8">
-            <h2 className="text-xl font-semibold mb-4">Registro Encontrado</h2>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p><strong>Declarantes:</strong></p>
-                  <p>{declaration.firstPerson.name} e {declaration.secondPerson.name}</p>
-                </div>
-                <div>
-                  <p><strong>Data:</strong></p>
-                  <p>{new Date(declaration.date).toLocaleDateString('pt-BR')}</p>
-                </div>
-                <div>
-                  <p><strong>Livro:</strong></p>
-                  <p>{declaration.registryBook}</p>
-                </div>
-                <div>
-                  <p><strong>Folha:</strong></p>
-                  <p>{declaration.registryPage}</p>
-                </div>
-                <div>
-                  <p><strong>Termo:</strong></p>
-                  <p>{declaration.registryTerm}</p>
-                </div>
+          <>
+            <Card className="p-6 mb-8">
+              <h2 className="text-xl font-semibold mb-4">Histórico de Alterações</h2>
+              <div className="space-y-4">
+                {declaration.history && declaration.history.length > 0 ? (
+                  declaration.history.map((entry) => (
+                    <div key={entry.id} className="border-l-4 border-gray-300 pl-4">
+                      <p className="font-semibold">{entry.type === 'UPDATE' ? 'Atualização' : 'Segunda Via'}</p>
+                      <p>{entry.description}</p>
+                      {entry.averbation && (
+                        <p className="text-gray-600">Averbação: {entry.averbation}</p>
+                      )}
+                      <p className="text-sm text-gray-500">
+                        Por: {entry.updatedBy} em {new Date(entry.updatedAt).toLocaleString('pt-BR')}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500">Nenhuma alteração registrada</p>
+                )}
               </div>
+            </Card>
 
+            <Card className="p-6 mb-8">
+              <h2 className="text-xl font-semibold mb-4">Atualizar Registro</h2>
+              <DeclarationForm 
+                initialData={declaration}
+                onSubmit={handleUpdate}
+              />
+              
               <div className="mt-6 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -190,15 +249,15 @@ export default function Update() {
                 </div>
 
                 <Button
-                  onClick={handleUpdate}
+                  onClick={() => handleUpdate(declaration)}
                   disabled={isUpdating || !averbation.trim()}
                   className="w-full bg-gray-200 hover:bg-gray-300"
                 >
                   {isUpdating ? "Atualizando..." : "Atualizar Registro"}
                 </Button>
               </div>
-            </div>
-          </Card>
+            </Card>
+          </>
         )}
       </div>
     </div>
