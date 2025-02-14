@@ -27,22 +27,7 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({
-      ...declaration,
-      date: declaration.date.toISOString(),
-      unionStartDate: declaration.unionStartDate.toISOString(),
-      pactDate: declaration.pactDate ? declaration.pactDate.toISOString() : null,
-      firstPerson: {
-        ...declaration.firstPerson,
-        birthDate: declaration.firstPerson.birthDate.toISOString(),
-        divorceDate: declaration.firstPerson.divorceDate ? declaration.firstPerson.divorceDate.toISOString() : null,
-      },
-      secondPerson: {
-        ...declaration.secondPerson,
-        birthDate: declaration.secondPerson.birthDate.toISOString(),
-        divorceDate: declaration.secondPerson.divorceDate ? declaration.secondPerson.divorceDate.toISOString() : null,
-      },
-    });
+    return NextResponse.json(declaration);
   } catch (error) {
     console.error('Failed to fetch declaration:', error);
     return NextResponse.json(
@@ -68,14 +53,13 @@ export async function PUT(
     const body = await request.json();
     
     const declaration = await prisma.$transaction(async (tx) => {
-     
       const updatedDeclaration = await tx.declaration.update({
         where: { id: params.id },
         data: {
-          date: new Date(body.date),
+          date: body.date,
           city: body.city,
           state: body.state,
-          unionStartDate: new Date(body.unionStartDate),
+          unionStartDate: body.unionStartDate,
           propertyRegime: body.propertyRegime,
           registrarName: body.registrarName,
           pactDate: body.pactDate ? new Date(body.pactDate) : null,
@@ -86,15 +70,15 @@ export async function PUT(
           firstPerson: {
             update: {
               ...body.firstPerson,
-              birthDate: new Date(body.firstPerson.birthDate),
-              divorceDate: body.firstPerson.divorceDate ? new Date(body.firstPerson.divorceDate) : null,
+              birthDate: body.firstPerson.birthDate,
+              divorceDate: body.firstPerson.divorceDate
             },
           },
           secondPerson: {
             update: {
               ...body.secondPerson,
-              birthDate: new Date(body.secondPerson.birthDate),
-              divorceDate: body.secondPerson.divorceDate ? new Date(body.secondPerson.divorceDate) : null,
+              birthDate: body.secondPerson.birthDate,
+              divorceDate: body.secondPerson.divorceDate
             },
           },
         },
@@ -103,6 +87,7 @@ export async function PUT(
           secondPerson: true,
         },
       });
+
 
       await tx.declarationHistory.create({
         data: {

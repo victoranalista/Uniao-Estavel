@@ -71,7 +71,7 @@ interface Declaration {
     averbation?: string;
     updatedBy: string;
     updatedAt: string;
-  }>;
+  }> | null;
 }
 
 export default function Update() {
@@ -93,7 +93,7 @@ export default function Update() {
       if (!response.ok) {
         throw new Error('Erro ao buscar declaração');
       }
-
+      
       const data = await response.json();
       if (data.length === 0) {
         toast.error('Nenhuma declaração encontrada');
@@ -116,53 +116,51 @@ export default function Update() {
 
     setIsUpdating(true);
     try {
-      const response = await fetch(`/api/registrations/${declaration.id}`, {
+      // Atualizando o registro
+      const updateResponse = await fetch(`/api/registrations/${declaration.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           ...formData,
-          averbation: averbation.trim()
+          averbation: averbation.trim(),
         }),
       });
 
-      if (!response.ok) {
+      if (!updateResponse.ok) {
         throw new Error('Erro ao atualizar registro');
       }
 
-      // Verificar se a averbação foi inserida
-      if (averbation.trim()) {
-        // Gerar o PDF atualizado com a averbação
-        const pdfResponse = await fetch('/api/generate-pdf', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            ...formData,
-            averbation: averbation.trim()
-          }),
-        });
+      // Gerando o PDF
+      const pdfResponse = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          averbation: averbation.trim(),
+        }),
+      });
 
-        if (!pdfResponse.ok) {
-          throw new Error('Erro ao gerar PDF atualizado');
-        }
-
-        const blob = await pdfResponse.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'declaracao-atualizada.pdf';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
+      if (!pdfResponse.ok) {
+        throw new Error('Erro ao gerar PDF atualizado');
       }
+
+      const blob = await pdfResponse.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'declaracao-atualizada.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
 
       toast.success('Registro atualizado com sucesso');
       setAverbation('');
-      handleSearch(); // Refresh declaration data
+      handleSearch(); // Atualiza os dados depois de salvar
     } catch (error) {
       console.error('Update error:', error);
       toast.error('Erro ao atualizar registro');
