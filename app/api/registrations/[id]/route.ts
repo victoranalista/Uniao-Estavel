@@ -112,7 +112,7 @@ export async function PUT(
               registryTerm: body.secondPerson.registryTerm,
               divorceDate: body.secondPerson.divorceDate ? new Date(body.secondPerson.divorceDate) : null,
               newName: body.secondPerson.newName,
-            },
+            }, 
           },
         },
         include: {
