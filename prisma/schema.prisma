@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model user {
+model User {
   id            String    @id @default(cuid())
   name          String
   email         String    @unique
@@ -41,7 +41,6 @@ model Declaration {
   pactBook       String?
   pactPage       String?
   pactTerm       String?
-  typeRegistry   String?
   firstPersonId  String
   secondPersonId String
   firstPerson    Person    @relation("FirstPerson", fields: [firstPersonId], references: [id])
@@ -49,7 +48,6 @@ model Declaration {
   history        DeclarationHistory[]
   @@map("declarations")
 }
-
 
 model Person {
   id                       String        @id @default(cuid())
@@ -83,7 +81,7 @@ model Person {
 model DeclarationHistory {
   id             String      @id @default(cuid())
   declarationId  String
-  type           String     
+  type           String      // 'UPDATE' or 'SECOND_COPY'
   description    String
   averbation     String?
   updatedBy      String
@@ -92,4 +90,3 @@ model DeclarationHistory {
 
   @@map("declaration_history")
 }
-
