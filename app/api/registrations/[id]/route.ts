@@ -53,13 +53,14 @@ export async function PUT(
     const body = await request.json();
     
     const declaration = await prisma.$transaction(async (tx) => {
+      // Update the declaration
       const updatedDeclaration = await tx.declaration.update({
         where: { id: params.id },
         data: {
-          date: body.date,
+          date: new Date(body.date),
           city: body.city,
           state: body.state,
-          unionStartDate: body.unionStartDate,
+          unionStartDate: new Date(body.unionStartDate),
           propertyRegime: body.propertyRegime,
           registrarName: body.registrarName,
           pactDate: body.pactDate ? new Date(body.pactDate) : null,
@@ -70,15 +71,15 @@ export async function PUT(
           firstPerson: {
             update: {
               ...body.firstPerson,
-              birthDate: body.firstPerson.birthDate,
-              divorceDate: body.firstPerson.divorceDate
+              birthDate: new Date(body.firstPerson.birthDate),
+              divorceDate: body.firstPerson.divorceDate ? new Date(body.firstPerson.divorceDate) : null,
             },
           },
           secondPerson: {
             update: {
               ...body.secondPerson,
-              birthDate: body.secondPerson.birthDate,
-              divorceDate: body.secondPerson.divorceDate
+              birthDate: new Date(body.secondPerson.birthDate),
+              divorceDate: body.secondPerson.divorceDate ? new Date(body.secondPerson.divorceDate) : null,
             },
           },
         },
@@ -88,6 +89,7 @@ export async function PUT(
         },
       });
 
+      // Create history entry
       await tx.declarationHistory.create({
         data: {
           declarationId: params.id,
