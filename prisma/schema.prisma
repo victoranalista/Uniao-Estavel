@@ -50,6 +50,7 @@ model Declaration {
   @@map("declarations")
 }
 
+
 model Person {
   id                       String        @id @default(cuid())
   createdAt                DateTime      @default(now())
@@ -91,3 +92,4 @@ model DeclarationHistory {
 
   @@map("declaration_history")
 }
+
