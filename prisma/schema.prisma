@@ -71,6 +71,7 @@ model Person {
   registryBook             String
   registryPage             String
   registryTerm             String
+  typeRegistry             String
   divorceDate              DateTime?
   newName                  String?
   firstPersonDeclarations  Declaration[] @relation("FirstPerson")

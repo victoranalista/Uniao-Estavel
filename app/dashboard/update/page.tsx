@@ -30,6 +30,8 @@ interface Declaration {
     registryPage: string;
     registryTerm: string;
     typeRegistry: string;
+    divorceDate?: string;
+    newName?: string;
   };
   secondPerson: { 
     name: string; 
@@ -50,6 +52,8 @@ interface Declaration {
     registryPage: string;
     registryTerm: string;
     typeRegistry: string;
+    divorceDate?: string;
+    newName?: string;
   };
   date: string;
   city: string;
@@ -72,7 +76,7 @@ interface Declaration {
     updatedBy: string;
     updatedAt: string;
   }>;
-};
+}
 
 export default function Update() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -101,7 +105,25 @@ export default function Update() {
         return;
       }
 
-      setDeclaration(data[0]);
+      // Format dates before setting the declaration
+      const formattedData = {
+        ...data[0],
+        date: new Date(data[0].date).toISOString().split('T')[0],
+        unionStartDate: new Date(data[0].unionStartDate).toISOString().split('T')[0],
+        pactDate: data[0].pactDate ? new Date(data[0].pactDate).toISOString().split('T')[0] : undefined,
+        firstPerson: {
+          ...data[0].firstPerson,
+          birthDate: new Date(data[0].firstPerson.birthDate).toISOString().split('T')[0],
+          divorceDate: data[0].firstPerson.divorceDate ? new Date(data[0].firstPerson.divorceDate).toISOString().split('T')[0] : undefined
+        },
+        secondPerson: {
+          ...data[0].secondPerson,
+          birthDate: new Date(data[0].secondPerson.birthDate).toISOString().split('T')[0],
+          divorceDate: data[0].secondPerson.divorceDate ? new Date(data[0].secondPerson.divorceDate).toISOString().split('T')[0] : undefined
+        }
+      };
+
+      setDeclaration(formattedData);
       toast.success('Declaração encontrada');
     } catch (error) {
       console.error('Search error:', error);
@@ -131,6 +153,7 @@ export default function Update() {
         throw new Error('Erro ao atualizar registro');
       }
 
+      // Generate updated PDF with averbation
       const pdfResponse = await fetch('/api/generate-pdf', {
         method: 'POST',
         headers: {
@@ -158,7 +181,7 @@ export default function Update() {
 
       toast.success('Registro atualizado com sucesso');
       setAverbation('');
-      handleSearch();
+      handleSearch(); // Refresh declaration data
     } catch (error) {
       console.error('Update error:', error);
       toast.error('Erro ao atualizar registro');
@@ -250,7 +273,7 @@ export default function Update() {
 
                 <Button
                   onClick={() => handleUpdate(declaration)}
-                  disabled={isUpdating || !averbation.trim()}
+                  disabled={isUpdating}
                   className="w-full bg-gray-200 hover:bg-gray-300"
                 >
                   {isUpdating ? "Atualizando..." : "Atualizar Registro"}
