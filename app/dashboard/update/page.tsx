@@ -72,7 +72,7 @@ interface Declaration {
     updatedBy: string;
     updatedAt: string;
   }>;
-
+}
 
 export default function Update() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -116,20 +116,18 @@ export default function Update() {
 
     setIsUpdating(true);
     try {
-      // Atualizando o registro
-      const updateResponse = await fetch(`/api/registrations/${declaration.id}`, {
+      const response = await fetch(`/api/registrations/${declaration.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           ...formData,
-
           averbation: averbation.trim()
         }),
       });
 
-      if (!updateResponse.ok) {
+      if (!response.ok) {
         throw new Error('Erro ao atualizar registro');
       }
 
@@ -141,7 +139,6 @@ export default function Update() {
         body: JSON.stringify({
           ...formData,
           averbation: averbation.trim()
-
         }),
       });
 
@@ -161,8 +158,7 @@ export default function Update() {
 
       toast.success('Registro atualizado com sucesso');
       setAverbation('');
-
-      handleSearch();
+      handleSearch(); // Refresh declaration data
     } catch (error) {
       console.error('Update error:', error);
       toast.error('Erro ao atualizar registro');
