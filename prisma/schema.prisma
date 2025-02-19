@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  role          Role      @default(USER)
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  USER
+}
+
+model Declaration {
+  id             String    @id @default(cuid())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  date           DateTime
+  city           String
+  state          String
+  unionStartDate DateTime
+  propertyRegime String
+  registrarName  String
+  pactDate       DateTime?
+  pactOffice     String?
+  pactBook       String?
+  pactPage       String?
+  pactTerm       String?
+  firstPersonId  String
+  secondPersonId String
+  firstPerson    Person    @relation("FirstPerson", fields: [firstPersonId], references: [id])
+  secondPerson   Person    @relation("SecondPerson", fields: [secondPersonId], references: [id])
+  history        DeclarationHistory[]
+  @@map("declarations")
+}
+
+model Person {
+  id                       String        @id @default(cuid())
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+  name                     String
+  nationality              String
+  civilStatus              String
+  birthDate                DateTime
+  birthPlace               String
+  profession               String
+  rg                       String
+  cpf                      String        @unique
+  address                  String
+  email                    String
+  phone                    String
+  fatherName               String
+  motherName               String
+  registryOffice           String
+  registryBook             String
+  registryPage             String
+  registryTerm             String
+  typeRegistry             String?
+  divorceDate              DateTime?
+  newName                  String?
+  firstPersonDeclarations  Declaration[] @relation("FirstPerson")
+  secondPersonDeclarations Declaration[] @relation("SecondPerson")
+
+  @@map("persons")
+}
+
+model DeclarationHistory {
+  id             String      @id @default(cuid())
+  declarationId  String
+  type           String      // 'UPDATE' or 'SECOND_COPY'
+  description    String
+  averbation     String?
+  updatedBy      String
+  updatedAt      DateTime    @default(now())
+  declaration    Declaration @relation(fields: [declarationId], references: [id])
+
+  @@map("declaration_history")
+}
