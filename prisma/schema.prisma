@@ -7,12 +7,288 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Person {
+  id              String                 @id @default(cuid())  
+  logicalId       String                 @default(cuid())
+  version         Int                    @default(1)
+  isActive        Boolean                @default(true)
+  identity        PersonIdentity?          
+  civilStatuses   PersonCivilStatus[]      
+  addresses       PersonAddress[]          
+  contact         PersonContact?            
+  documents       PersonDocument?          
+  family          PersonFamily?             
+  professional    PersonProfessionalData?   
+  registry        RegistryData?             
+  declarations    DeclarationPerson[]    
+  clientDocuments ClientDocument[]     
+  createdAt       DateTime               @default(now())
+  deletedAt       DateTime?
+
+  @@unique([logicalId, version])
+  @@map("persons")
+}
+
+model PersonIdentity {
+  id           String     @id @default(cuid())
+  personId     String     @unique
+  fullName     String
+  nationality  String
+  birthDate    DateTime
+  birthPlace   String
+  taxId        String     @unique
+  person       Person     @relation(fields: [personId], references: [id])
+  createdAt    DateTime   @default(now())
+  deletedAt    DateTime?
+
+  @@map("person_identity")
+}
+
+model PersonCivilStatus {
+  id          String   @id @default(cuid())
+  personId    String
+  status      String
+  person      Person   @relation(fields: [personId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@map("person_civil_status")
+}
+
+model PersonAddress {
+  id           String   @id @default(cuid())
+  personId     String  
+  street       String
+  number       String
+  complement   String?
+  neighborhood String
+  city         String
+  state        String
+  person       Person   @relation(fields: [personId], references: [id])
+  createdAt    DateTime @default(now())
+  deletedAt    DateTime?
+
+  @@map("person_addresses")
+}
+
+model PersonContact {
+  id        String   @id @default(cuid())
+  personId  String   @unique
+  email     String   
+  phone     String
+  person    Person   @relation(fields: [personId], references: [id])  
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+
+  @@map("person_contact")
+}
+
+model PersonDocument {
+  id        String   @id @default(cuid())
+  personId  String   @unique
+  rg        String
+  person    Person   @relation(fields: [personId], references: [id]) 
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+
+  @@map("person_document")
+}
+
+model PersonFamily {
+  id          String   @id @default(cuid())
+  personId    String   @unique
+  fatherName  String
+  motherName  String
+  person      Person   @relation(fields: [personId], references: [id]) 
+  createdAt   DateTime @default(now())
+  deletedAt   DateTime?
+
+  @@map("person_family")
+}
+
+model PersonProfessionalData {
+  id           String   @id @default(cuid())
+  personId     String   @unique
+  profession   String
+  person       Person   @relation(fields: [personId], references: [id]) 
+  createdAt    DateTime @default(now())
+  deletedAt    DateTime?
+
+  @@map("person_professional")
+}
+
+model RegistryData {
+  id             String   @id @default(cuid())
+  personId       String  @unique
+  registryOffice String
+  registryBook   String
+  registryPage   String
+  registryTerm   String
+  person         Person   @relation(fields: [personId], references: [id])
+  createdAt      DateTime @default(now())
+  deletedAt      DateTime?
+
+  @@map("registry_data")
+}
+
+model DeclarationPerson {
+  id            String   @id @default(cuid())
+  declarationId String
+  personId      String
+  declaration   Declaration @relation(fields: [declarationId], references: [id])
+  person        Person      @relation(fields: [personId], references: [id])
+  createdAt     DateTime @default(now())
+  deletedAt     DateTime?
+
+  @@map("declaration_person")
+}
+
+model Declaration {
+  id               String                 @id @default(cuid())
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  declarationDate  DateTime
+  city             String
+  state            String
+  unionStartDate   DateTime
+  propertyRegime   String
+  registryInfo     DeclarationRegistry?      
+  prenuptial       PrenuptialAgreement?     
+  history          DeclarationHistory[]      
+  participants     DeclarationPerson[]       
+  drive           DeclarationDrive?      
+  receipts         Receipt[]              
+  clientDocuments  ClientDocument[]
+  witnesses        Witness[]
+  documents        Document[]      
+  deletedAt        DateTime?
+
+  @@map("declarations")
+}
+
+model DeclarationRegistry {
+  id              String   @id @default(cuid())
+  declarationId   String   @unique
+  registryOffice  String
+  typeRegistry    String
+  registrarName   String
+  declaration     Declaration @relation(fields: [declarationId], references: [id])
+  createdAt       DateTime @default(now())
+  deletedAt       DateTime?
+
+  @@map("declaration_registry")
+}
+
+model PrenuptialAgreement {
+  id             String   @id @default(cuid())
+  declarationId  String   @unique
+  pactDate       DateTime?
+  pactOffice     String?
+  pactBook       String?
+  pactPage       String?
+  pactTerm       String?
+  declaration    Declaration @relation(fields: [declarationId], references: [id])
+  createdAt      DateTime @default(now())
+  deletedAt      DateTime?
+
+  @@map("prenuptial_agreement")
+}
+
+model Drive {
+  id                         String   @id @default(cuid())
+  googleDriveId              String
+  googleDriveFolderId        String
+  googleDriveDocTaxpayerId   String
+  googleDriveDocRawId        String   @unique
+  googleDriveDocRegisteredId String   @unique
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@map("drive")
+}
+
+model Receipt {
+  id              String        @id @default(cuid())
+  declarationId   String
+  receiptNumber   Int          
+  fees            ReceiptFee[]
+  totalAmount     Float
+  driveFileId     String        @unique
+  declaration     Declaration   @relation(fields: [declarationId], references: [id])
+  createdAt       DateTime      @default(now())
+
+  @@unique([declarationId, receiptNumber])
+  @@map("receipts")
+}
+
+model ReceiptFee {
+  id         String    @id @default(cuid())
+  receiptId  String
+  name       String
+  amount     Float
+  receipt    Receipt   @relation(fields: [receiptId], references: [id])
+  createdAt  DateTime  @default(now())
+
+  @@map("receipt_fees")
+  Fee Fee[]
+}
+
+model ClientDocument {
+  id             String           @id @default(cuid())
+  personId       String
+  declarationId  String
+  type           DocumentType
+  driveFileId    String           @unique
+  extractedData  Json?
+  person        Person      @relation(fields: [personId], references: [id])
+  declaration    Declaration      @relation(fields: [declarationId], references: [id])
+  createdAt      DateTime         @default(now())
+
+  @@map("client_documents")
+}
+
+model DeclarationDrive {
+  id                  String       @id @default(cuid())
+  declarationId       String       @unique
+  driveFolderId       String
+  registeredDocId     String
+  rawDocumentsId      String
+  declaration         Declaration  @relation(fields: [declarationId], references: [id])
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@map("declaration_drive")
+}
+
+enum DocumentType {
+  CERTIFICATE
+  PERSONAL_DOCUMENT
+  PROOF_OF_ADDRESS
+  OTHER
+}
+
+model DeclarationHistory {
+  id             String      @id @default(cuid())
+  declarationId  String
+  type           String
+  description    String
+  averbation     String?
+  updatedBy      String
+  updatedAt      DateTime   @default(now())
+  declaration    Declaration @relation(fields: [declarationId], references: [id])
+  deletedAt      DateTime?
+
+  @@map("declaration_history")
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String
   email         String    @unique
-  password      String
-  role          Role      @default(USER)
+  password      String?
+  googleId      String?   @unique
+  role          UserRole  @default(USER)
   active        Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -20,74 +296,90 @@ model User {
   @@map("users")
 }
 
-enum Role {
+enum UserRole {
   ADMIN
   MANAGER
   USER
 }
 
-model Declaration {
-  id             String    @id @default(cuid())
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  date           DateTime
-  city           String
-  state          String
-  unionStartDate DateTime
-  propertyRegime String
-  registrarName  String
-  pactDate       DateTime?
-  pactOffice     String?
-  pactBook       String?
-  pactPage       String?
-  pactTerm       String?
-  firstPersonId  String
-  secondPersonId String
-  firstPerson    Person    @relation("FirstPerson", fields: [firstPersonId], references: [id])
-  secondPerson   Person    @relation("SecondPerson", fields: [secondPersonId], references: [id])
-  history        DeclarationHistory[]
-  @@map("declarations")
+model Fee {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  amount      Float
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  receipts    ReceiptFee[]
+
+  @@map("fees")
 }
 
-model Person {
-  id                       String        @id @default(cuid())
-  createdAt                DateTime      @default(now())
-  updatedAt                DateTime      @updatedAt
-  name                     String
-  nationality              String
-  civilStatus              String
-  birthDate                DateTime
-  birthPlace               String
-  profession               String
-  rg                       String
-  cpf                      String        @unique
-  address                  String
-  email                    String
-  phone                    String
-  fatherName               String
-  motherName               String
-  registryOffice           String
-  registryBook             String
-  registryPage             String
-  registryTerm             String
-  typeRegistry             String?
-  divorceDate              DateTime?
-  newName                  String?
-  firstPersonDeclarations  Declaration[] @relation("FirstPerson")
-  secondPersonDeclarations Declaration[] @relation("SecondPerson")
+model Booking {
+  id              String           @id @default(cuid())
+  status          BookingStatus    @default(PENDING)
+  paymentUrl      String?
+  paymentStatus   PaymentStatus    @default(PENDING)
+  paidAt          DateTime?
+  expiresAt       DateTime
+  firstPerson     Json
+  secondPerson    Json
+  documents       Json[]
+  acuity          AcuityData?      @relation(fields: [acuityId], references: [id])
+  acuityId        String?          @unique
+  extractedData   Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
-  @@map("persons")
+  @@map("bookings")
 }
 
-model DeclarationHistory {
-  id             String      @id @default(cuid())
-  declarationId  String
-  type           String      // 'UPDATE' or 'SECOND_COPY'
-  description    String
-  averbation     String?
-  updatedBy      String
-  updatedAt      DateTime    @default(now())
-  declaration    Declaration @relation(fields: [declarationId], references: [id])
+enum BookingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
 
-  @@map("declaration_history")
+model AcuityData {
+  id             String   @id @default(cuid())
+  appointmentId  Int      @unique
+  calendarId     Int
+  typeId         Int
+  syncToken      String
+  booking        Booking?
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model Witness {
+  id            String   @id @default(cuid())
+  declarationId String
+  name          String
+  profession    String
+  documentType  String
+  documentNumber String
+  address       String
+  declaration   Declaration @relation(fields: [declarationId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("witnesses")
+}
+
+model Document {
+  id            String   @id @default(cuid())
+  declarationId String
+  type          String
+  imageUrl      String
+  verified      Boolean  @default(false)
+  declaration   Declaration @relation(fields: [declarationId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("documents")
 }
