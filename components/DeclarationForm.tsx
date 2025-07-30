@@ -1,475 +1,680 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useCallback, useEffect, useTransition, forwardRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import InputMask from 'react-input-mask';
-import { validateCPF } from '@/utils/validators';
+import { toast } from 'sonner';
+import { validatetaxpayerId } from '@/utils/validators';
+import { createDeclarationAction, updateDeclarationAction } from '@/app/actions/declarations';
 import {
-  ESTADOS_BRASILEIROS,
-  NACIONALIDADES,
-  ESTADOS_CIVIS,
+  getNacionalidadesPorGenero,
+  getEstadosCivisPorGenero,
   OFICIAIS_REGISTRADORES,
-  MUNICIPIOS_BRASIL,
   REGISTRO_CARTORIO
 } from '@/utils/constants';
-import { Alert } from "@/components/ui/alert";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { FileText, User, Heart, Building } from "lucide-react";
+import { DeclarationData } from '@/types/declarations';
+import { useFilteredCities } from '@/hooks/use-filtered-cities';
+import { useStates } from '@/hooks/use-states';
+
+const applyMask = (value: string, mask: string): string => {
+  if (!value) return '';
+  const cleanValue = value.replace(/\D/g, '');
+  let maskedValue = '';
+  let valueIndex = 0;
+  for (let i = 0; i < mask.length && valueIndex < cleanValue.length; i++) {
+    if (mask[i] === '9') {
+      maskedValue += cleanValue[valueIndex];
+      valueIndex++;
+    } else {
+      maskedValue += mask[i];
+    }
+  }
+  return maskedValue;
+};
+
+const MaskedInput = forwardRef<HTMLInputElement, {
+  mask: string;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  className?: string;
+  disabled?: boolean;
+}>(({ mask, value = '', onChange, ...props }, ref) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const maskedValue = applyMask(e.target.value, mask);
+    e.target.value = maskedValue;
+    onChange?.(e);
+  };
+  return (
+    <Input
+      ref={ref}
+      value={applyMask(value, mask)}
+      onChange={handleChange}
+      {...props}
+    />
+  );
+});
+
+MaskedInput.displayName = 'MaskedInput';
 
 const personSchema = z.object({
-  name: z.string().min(1, 'Nome é obrigatório'),
-  nationality: z.string().min(1, 'Nacionalidade é obrigatória'),
-  civilStatus: z.string().min(1, 'Estado civil é obrigatório'),
-  typeRegistry: z.string().min(1, 'Tipo de registro é obrigatório'),
-  birthDate: z.string().min(1, 'Data de nascimento é obrigatória'),
-  birthPlace: z.string().min(1, 'Local de nascimento é obrigatório'),
-  profession: z.string().min(1, 'Profissão é obrigatória'),
-  rg: z.string().min(1, 'RG é obrigatório'),
-  cpf: z.string().min(11, 'CPF inválido').refine(validateCPF, 'CPF inválido'),
-  address: z.string().min(1, 'Endereço é obrigatório'),
-  email: z.string().email('Email inválido'),
+  name: z.string().min(1, 'Nome obrigatório'),
+  nationality: z.string().min(1, 'Nacionalidade obrigatória'),
+  civilStatus: z.string().min(1, 'Estado civil obrigatório'),
+  typeRegistry: z.string().min(1, 'Tipo de registro obrigatório'),
+  RegistrationStatus: z.string().optional(),
+  birthDate: z.string().min(1, 'Data de nascimento obrigatória'),
+  birthPlaceState: z.string().min(1, 'Estado de nascimento obrigatório'),
+  birthPlaceCity: z.string().min(1, 'Cidade de nascimento obrigatória'),
+  profession: z.string().min(1, 'Profissão obrigatória'),
+  rg: z.string().min(1, 'RG obrigatório'),
+  taxpayerId: z.string().min(11, 'CPF inválido').refine(validatetaxpayerId, 'CPF inválido'),
+  address: z.string().min(1, 'Endereço obrigatório'),
+  email: z.email('Email inválido'),
   phone: z.string().min(14, 'Telefone inválido'),
-  fatherName: z.string().min(1, 'Nome do pai é obrigatório'),
-  motherName: z.string().min(1, 'Nome da mãe é obrigatório'),
-  registryOffice: z.string().min(1, 'Cartório é obrigatório'),
-  registryBook: z.string().min(1, 'Livro é obrigatório'),
-  registryPage: z.string().min(1, 'Folha é obrigatória'),
-  registryTerm: z.string().min(1, 'Termo é obrigatório'),
+  fatherName: z.string().min(1, 'Nome do pai obrigatório'),
+  motherName: z.string().min(1, 'Nome da mãe obrigatório'),
+  registryOffice: z.string().min(1, 'Cartório obrigatório'),
+  registryBook: z.string().min(1, 'Livro obrigatório'),
+  registryPage: z.string().min(1, 'Folha obrigatória'),
+  registryTerm: z.string().min(1, 'Termo obrigatório'),
   divorceDate: z.string().optional(),
   newName: z.string().optional(),
 });
 
 const declarationSchema = z.object({
-  date: z.string().min(1, 'Data é obrigatória'),
-  city: z.string().min(1, 'Cidade é obrigatória'),
-  state: z.string().min(1, 'Estado é obrigatório'),
+  date: z.string().min(1, 'Data obrigatória'),
+  city: z.string().min(1, 'Cidade obrigatória'),
+  state: z.string().min(1, 'Estado obrigatório'),
   firstPerson: personSchema,
   secondPerson: personSchema,
-  unionStartDate: z.string().min(1, 'Data de início da união é obrigatória'),
+  unionStartDate: z.string().min(1, 'Data de início da união obrigatória'),
   propertyRegime: z.enum(['COMUNHAO_PARCIAL', 'SEPARACAO_TOTAL', 'PARTICIPACAO_FINAL', 'COMUNHAO_UNIVERSAL'] as const),
+  stamp: z.string().optional(),
   pactDate: z.string().optional(),
   pactOffice: z.string().optional(),
   pactBook: z.string().optional(),
   pactPage: z.string().optional(),
   pactTerm: z.string().optional(),
-  registrarName: z.string().min(1, 'Nome do oficial é obrigatório'),
+  registrarName: z.string().min(1, 'Nome do oficial obrigatório'),
 });
 
-export type FormData = z.infer<typeof declarationSchema>;
+type DeclarationFormData = z.infer<typeof declarationSchema>;
 
 interface DeclarationFormProps {
-  initialData?: {
-    unionStartDate: string;
-    firstPerson: {
-      name: string;
-      nationality: string;
-      civilStatus: string;
-      birthDate: string;
-      birthPlace: string;
-      profession: string;
-      rg: string;
-      cpf: string;
-      address: string;
-      email: string;
-      phone: string;
-      fatherName: string;
-      motherName: string;
-      registryOffice: string;
-      registryBook: string;
-      registryPage: string;
-      registryTerm: string;
-    };
-    secondPerson: {
-      name: string;
-      nationality: string;
-      civilStatus: string;
-      birthDate: string;
-      birthPlace: string;
-      profession: string;
-      rg: string;
-      cpf: string;
-      address: string;
-      email: string;
-      phone: string;
-      fatherName: string;
-      motherName: string;
-      registryOffice: string;
-      registryBook: string;
-      registryPage: string;
-      registryTerm: string;
-    };
+  declarationId?: string;
+  initialData?: Partial<DeclarationData>;
+  onSuccess?: () => void;
+}
+
+const PROPERTY_REGIME_OPTIONS = [
+  { value: 'COMUNHAO_PARCIAL', label: 'Comunhão Parcial de Bens' },
+  { value: 'SEPARACAO_TOTAL', label: 'Separação Total de Bens' },
+  { value: 'PARTICIPACAO_FINAL', label: 'Participação Final nos Aquestos' },
+  { value: 'COMUNHAO_UNIVERSAL', label: 'Comunhão Universal de Bens' },
+] as const;
+
+const getFormDefaults = (initialData?: Partial<DeclarationData>): DeclarationFormData => ({
+  city: initialData?.city || 'Brasília',
+  state: initialData?.state || 'DF',
+  date: initialData?.date ? new Date(initialData.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+  propertyRegime: initialData?.propertyRegime || 'COMUNHAO_PARCIAL',
+  unionStartDate: initialData?.unionStartDate ? new Date(initialData.unionStartDate).toISOString().split('T')[0] : '',
+  registrarName: initialData?.registrarName || '',
+  stamp: initialData?.stamp || '',
+  pactDate: initialData?.pactDate ? new Date(initialData.pactDate).toISOString().split('T')[0] : '',
+  pactOffice: initialData?.pactOffice || '',
+  pactBook: initialData?.pactBook || '',
+  pactPage: initialData?.pactPage || '',
+  pactTerm: initialData?.pactTerm || '',
+  firstPerson: {
+    name: initialData?.firstPerson?.name || '',
+    nationality: initialData?.firstPerson?.nationality || '',
+    civilStatus: initialData?.firstPerson?.civilStatus || '',
+    typeRegistry: initialData?.firstPerson?.typeRegistry || '',
+    birthDate: initialData?.firstPerson?.birthDate ? new Date(initialData.firstPerson.birthDate).toISOString().split('T')[0] : '',
+    birthPlaceState: initialData?.firstPerson?.birthPlaceState || '',
+    birthPlaceCity: initialData?.firstPerson?.birthPlaceCity || '',
+    profession: initialData?.firstPerson?.profession || '',
+    rg: initialData?.firstPerson?.rg || '',
+    taxpayerId: initialData?.firstPerson?.taxpayerId || '',
+    address: initialData?.firstPerson?.address || '',
+    email: initialData?.firstPerson?.email || '',
+    phone: initialData?.firstPerson?.phone || '',
+    fatherName: initialData?.firstPerson?.fatherName || '',
+    motherName: initialData?.firstPerson?.motherName || '',
+    registryOffice: initialData?.firstPerson?.registryOffice || '',
+    registryBook: initialData?.firstPerson?.registryBook || '',
+    registryPage: initialData?.firstPerson?.registryPage || '',
+    registryTerm: initialData?.firstPerson?.registryTerm || '',
+    divorceDate: initialData?.firstPerson?.divorceDate ? new Date(initialData.firstPerson.divorceDate).toISOString().split('T')[0] : '',
+    newName: initialData?.firstPerson?.newName || '',
+  },
+  secondPerson: {
+    name: initialData?.secondPerson?.name || '',
+    nationality: initialData?.secondPerson?.nationality || '',
+    civilStatus: initialData?.secondPerson?.civilStatus || '',
+    typeRegistry: initialData?.secondPerson?.typeRegistry || '',
+    birthDate: initialData?.secondPerson?.birthDate ? new Date(initialData.secondPerson.birthDate).toISOString().split('T')[0] : '',
+    birthPlaceState: initialData?.secondPerson?.birthPlaceState || '',
+    birthPlaceCity: initialData?.secondPerson?.birthPlaceCity || '',
+    profession: initialData?.secondPerson?.profession || '',
+    rg: initialData?.secondPerson?.rg || '',
+    taxpayerId: initialData?.secondPerson?.taxpayerId || '',
+    address: initialData?.secondPerson?.address || '',
+    email: initialData?.secondPerson?.email || '',
+    phone: initialData?.secondPerson?.phone || '',
+    fatherName: initialData?.secondPerson?.fatherName || '',
+    motherName: initialData?.secondPerson?.motherName || '',
+    registryOffice: initialData?.secondPerson?.registryOffice || '',
+    registryBook: initialData?.secondPerson?.registryBook || '',
+    registryPage: initialData?.secondPerson?.registryPage || '',
+    registryTerm: initialData?.secondPerson?.registryTerm || '',
+    divorceDate: initialData?.secondPerson?.divorceDate ? new Date(initialData.secondPerson.divorceDate).toISOString().split('T')[0] : '',
+    newName: initialData?.secondPerson?.newName || '',
+  },
+});
+
+const createSubmissionData = (formData: DeclarationFormData): FormData => {
+  const submissionData = new FormData();
+  const flattenFormData = (obj: Record<string, unknown>, prefix = '') => {
+    Object.entries(obj).forEach(([key, value]) => {
+      const fullKey = prefix ? `${prefix}.${key}` : key;
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        flattenFormData(value as Record<string, unknown>, fullKey);
+      } else if (value !== undefined && value !== null && value !== '') {
+        submissionData.append(fullKey, String(value));
+      }
+    });
   };
-  onSubmit: (data: FormData) => Promise<void>;
-}
+  flattenFormData(formData);
+  return submissionData;
+};
 
-interface FormFieldProps {
-  label: string;
-  register: any;
-  name: string;
-  error?: string;
-  type?: string;
-  required?: boolean;
-  mask?: string;
-  options?: string[];
-  onSelect?: (value: string) => void;
-  value?: string;
-  disabled?: boolean;
-}
+const handleFormSubmission = async (formData: DeclarationFormData, declarationId?: string) => {
+  const submissionData = createSubmissionData(formData);
+  return declarationId
+    ? await updateDeclarationAction(declarationId, submissionData)
+    : await createDeclarationAction(submissionData);
+};
 
-const FormField = ({
-  label,
-  register,
-  name,
-  error,
-  type = "text",
-  required = true,
-  mask,
-  options,
-  onSelect,
-  value,
-  disabled = false
-}: FormFieldProps) => {
-  if (options) {
-    return (
-      <div>
-        <label className="block text-sm font-medium text-gray-700">{label}</label>
-        <select
-          {...register(name)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-          onChange={(e) => onSelect && onSelect(e.target.value)}
-          value={value}
-          disabled={disabled}
-        >
-          <option value="">Selecione...</option>
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-      </div>
-    );
+const downloadPdf = (pdfBase64: string, filename: string) => {
+  const byteCharacters = atob(pdfBase64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
   }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: 'application/pdf' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+};
 
+const showSubmissionResult = (result: any, declarationId?: string, onSuccess?: () => void) => {
+  if (result.success) {
+    const message = declarationId
+      ? 'Declaração atualizada com sucesso!'
+      : 'Declaração criada com sucesso!';
+    toast.success(message);
+    if (result.pdfContent && result.filename) {
+      downloadPdf(result.pdfContent, result.filename);
+      toast.success('PDF baixado automaticamente!');
+    }
+    onSuccess?.();
+    return null;
+  } else {
+    const error = result.error || 'Erro desconhecido';
+    toast.error(error);
+    return error;
+  }
+};
+
+const renderTextInput = (form: any, name: string, label: string, required = true, mask?: string) => (
+  <FormField
+    control={form.control}
+    name={name}
+    render={({ field }) => (
+      <FormItem>
+        <FormLabel className="flex items-center gap-2">
+          {label}
+          {!required && <Badge variant="outline" className="text-xs">Opcional</Badge>}
+        </FormLabel>
+        <FormControl>
+          {mask ? (
+            <MaskedInput mask={mask} {...field} value={field.value || ''} />
+          ) : (
+            <Input {...field} value={field.value || ''} />
+          )}
+        </FormControl>
+        <FormMessage />
+      </FormItem>
+    )}
+  />
+);
+
+const renderDateInput = (form: any, name: string, label: string, required = true) => (
+  <FormField
+    control={form.control}
+    name={name}
+    render={({ field }) => (
+      <FormItem>
+        <FormLabel className="flex items-center gap-2">
+          {label}
+          {!required && <Badge variant="outline" className="text-xs">Opcional</Badge>}
+        </FormLabel>
+        <FormControl>
+          <Input type="date" {...field} value={field.value || ''} />
+        </FormControl>
+        <FormMessage />
+      </FormItem>
+    )}
+  />
+);
+
+const renderSelectInput = (form: any, name: string, label: string, options: readonly string[]) => (
+  <FormField
+    control={form.control}
+    name={name}
+    render={({ field }) => (
+      <FormItem>
+        <FormLabel>{label}</FormLabel>
+        <Select onValueChange={field.onChange} value={field.value || ''}>
+          <FormControl>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione..." />
+            </SelectTrigger>
+          </FormControl>
+          <SelectContent>
+            {options.map(option => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <FormMessage />
+      </FormItem>
+    )}
+  />
+);
+
+const renderStateSelectInput = (form: any, name: string, label: string) => {
+  const { states, isLoading } = useStates();
   return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
-      {mask ? (
-        <InputMask
-          mask={mask}
-          type={type}
-          {...register(name)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-          required={required}
-        />
-      ) : (
-        <input
-          type={type}
-          {...register(name)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-          required={required}
-        />
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{label}</FormLabel>
+          <Select
+            onValueChange={field.onChange}
+            value={field.value || ''}
+            disabled={isLoading}
+          >
+            <FormControl>
+              <SelectTrigger>
+                <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o estado..."} />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              {states.map(state => (
+                <SelectItem key={state} value={state}>
+                  {state}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FormMessage />
+        </FormItem>
       )}
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-    </div>
+    />
   );
 };
 
-export function DeclarationForm({ initialData, onSubmit }: DeclarationFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [firstPersonAge, setFirstPersonAge] = useState<number | null>(null);
-  const [secondPersonAge, setSecondPersonAge] = useState<number | null>(null);
+const renderCitySelectInput = (form: any, stateFieldName: string, cityFieldName: string, label: string) => {
+  const selectedState = form.watch(stateFieldName);
+  const { cities, isLoading } = useFilteredCities(selectedState);
+  return (
+    <FormField
+      control={form.control}
+      name={cityFieldName}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{label}</FormLabel>
+          <Select
+            onValueChange={field.onChange}
+            value={field.value || ''}
+            disabled={!selectedState || isLoading}
+          >
+            <FormControl>
+              <SelectTrigger>
+                <SelectValue placeholder={
+                  isLoading ? "Carregando..." :
+                    selectedState ? "Selecione a cidade..." :
+                      "Selecione primeiro o estado"
+                } />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              {cities.map(city => (
+                <SelectItem key={`${selectedState}-${city}`} value={city}>
+                  {city}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+};
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(declarationSchema),
-    defaultValues: {
-      city: 'Brasília',
-      state: 'DF'
-    }
-  });
+const renderNationalitySelectInput = (form: any, prefix: string, label: string) => {
+  const isSecondPerson = prefix === 'secondPerson';
+  const [gender, setGender] = useState<'M' | 'F'>(isSecondPerson ? 'F' : 'M');
+  const nacionalidades = getNacionalidadesPorGenero(gender);
 
-  useEffect(() => {
-    if (initialData) {
-      setValue('unionStartDate', initialData.unionStartDate);
-      
-      Object.entries(initialData.firstPerson).forEach(([key, value]) => {
-        setValue(`firstPerson.${key as keyof typeof initialData.firstPerson}`, value);
-      });
-      
-      Object.entries(initialData.secondPerson).forEach(([key, value]) => {
-        setValue(`secondPerson.${key as keyof typeof initialData.secondPerson}`, value);
-      });
-    }
-  }, [initialData, setValue]);
-
-  const registrarName = watch('registrarName');
-  const selectedOfficialFunction = OFICIAIS_REGISTRADORES[registrarName] || 'Oficial Registrador';
-
-  const handleFormSubmit = async (data: FormData) => {
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      await onSubmit(data);
-    } catch (error) {
-      console.error('Error:', error);
-      setError(error instanceof Error ? error.message : 'Erro ao processar a solicitação');
-    } finally {
-      setIsSubmitting(false);
+  const toggleGender = () => {
+    const newGender = gender === 'M' ? 'F' : 'M';
+    setGender(newGender);
+    const currentValue = form.getValues(`${prefix}.nationality`);
+    if (currentValue) {
+      const currentIndex = getNacionalidadesPorGenero(gender).indexOf(currentValue);
+      if (currentIndex !== -1) {
+        const newNationalities = getNacionalidadesPorGenero(newGender);
+        if (newNationalities[currentIndex]) {
+          form.setValue(`${prefix}.nationality`, newNationalities[currentIndex]);
+        } else {
+          form.setValue(`${prefix}.nationality`, '');
+        }
+      }
     }
   };
 
-  const renderPersonFields = (prefix: 'firstPerson' | 'secondPerson', title: string) => (
-    <div className="space-y-4 bg-white p-6 rounded-lg shadow-sm">
-      <h2 className="text-xl font-semibold border-b pb-2">{title}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <FormField
-          label="Nome Completo"
-          register={register}
-          name={`${prefix}.name`}
-          error={errors[prefix]?.name?.message}
-        />
-        <FormField
-          label="Nacionalidade"
-          register={register}
-          name={`${prefix}.nationality`}
-          options={NACIONALIDADES}
-          error={errors[prefix]?.nationality?.message}
-        />
-        <FormField
-          label="Estado Civil"
-          register={register}
-          name={`${prefix}.civilStatus`}
-          options={ESTADOS_CIVIS}
-          error={errors[prefix]?.civilStatus?.message}
-        />
-        <FormField
-          label="Tipo de Registro"
-          register={register}
-          name={`${prefix}.typeRegistry`}
-          options={REGISTRO_CARTORIO}
-          error={errors[prefix]?.typeRegistry?.message}
-        />
-        <FormField
-          label="Data de Nascimento"
-          register={register}
-          name={`${prefix}.birthDate`}
-          type="date"
-          error={errors[prefix]?.birthDate?.message}
-        />
-        <FormField
-          label="Local de Nascimento"
-          register={register}
-          name={`${prefix}.birthPlace`}
-          options={MUNICIPIOS_BRASIL.map(m => m.nome)}
-          error={errors[prefix]?.birthPlace?.message}
-        />
-        <FormField
-          label="Profissão"
-          register={register}
-          name={`${prefix}.profession`}
-          error={errors[prefix]?.profession?.message}
-        />
-        <FormField
-          label="RG"
-          register={register}
-          name={`${prefix}.rg`}
-          error={errors[prefix]?.rg?.message}
-        />
-        <FormField
-          label="CPF"
-          register={register}
-          name={`${prefix}.cpf`}
-          mask="999.999.999-99"
-          error={errors[prefix]?.cpf?.message}
-        />
-        <FormField
-          label="Endereço"
-          register={register}
-          name={`${prefix}.address`}
-          error={errors[prefix]?.address?.message}
-        />
-        <FormField
-          label="Email"
-          register={register}
-          name={`${prefix}.email`}
-          type="email"
-          error={errors[prefix]?.email?.message}
-        />
-        <FormField
-          label="Telefone"
-          register={register}
-          name={`${prefix}.phone`}
-          mask="(99) 99999-9999"
-          error={errors[prefix]?.phone?.message}
-        />
-        <FormField
-          label="Nome do Pai"
-          register={register}
-          name={`${prefix}.fatherName`}
-          error={errors[prefix]?.fatherName?.message}
-        />
-        <FormField
-          label="Nome da Mãe"
-          register={register}
-          name={`${prefix}.motherName`}
-          error={errors[prefix]?.motherName?.message}
-        />
-        <FormField
-          label="Cartório de Registro"
-          register={register}
-          name={`${prefix}.registryOffice`}
-          error={errors[prefix]?.registryOffice?.message}
-        />
-        <FormField
-          label="Livro"
-          register={register}
-          name={`${prefix}.registryBook`}
-          error={errors[prefix]?.registryBook?.message}
-        />
-        <FormField
-          label="Folha"
-          register={register}
-          name={`${prefix}.registryPage`}
-          error={errors[prefix]?.registryPage?.message}
-        />
-        <FormField
-          label="Termo"
-          register={register}
-          name={`${prefix}.registryTerm`}
-          error={errors[prefix]?.registryTerm?.message}
-        />
-        <FormField
-          label="Data do Divórcio (se aplicável)"
-          register={register}
-          name={`${prefix}.divorceDate`}
-          type="date"
-          required={false}
-          error={errors[prefix]?.divorceDate?.message}
-        />
-        <FormField
-          label="Novo Nome (se aplicável)"
-          register={register}
-          name={`${prefix}.newName`}
-          required={false}
-          error={errors[prefix]?.newName?.message}
-        />
-      </div>
-    </div>
+  return (
+    <FormField
+      control={form.control}
+      name={`${prefix}.nationality`}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel className="flex items-center gap-2">
+            {label}
+            <Badge
+              variant="outline"
+              className="text-xs cursor-pointer hover:bg-muted transition-colors"
+              onClick={toggleGender}
+              title="Clique para alternar entre masculino e feminino"
+            >
+              {gender === 'M' ? 'Masculino' : 'Feminino'}
+            </Badge>
+          </FormLabel>
+          <Select onValueChange={field.onChange} value={field.value || ''}>
+            <FormControl>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a nacionalidade..." />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              {nacionalidades.map(nationality => (
+                <SelectItem key={nationality} value={nationality}>
+                  {nationality}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
   );
+};
+
+const renderCivilStatusSelectInput = (form: any, prefix: string, label: string) => {
+  const isSecondPerson = prefix === 'secondPerson';
+  const [gender, setGender] = useState<'M' | 'F'>(isSecondPerson ? 'F' : 'M');
+  const estadosCivis = getEstadosCivisPorGenero(gender);
+
+  const toggleGender = () => {
+    const newGender = gender === 'M' ? 'F' : 'M';
+    setGender(newGender);
+    const currentValue = form.getValues(`${prefix}.civilStatus`);
+    if (currentValue) {
+      const currentIndex = getEstadosCivisPorGenero(gender).indexOf(currentValue);
+      if (currentIndex !== -1) {
+        const newCivilStatuses = getEstadosCivisPorGenero(newGender);
+        if (newCivilStatuses[currentIndex]) {
+          form.setValue(`${prefix}.civilStatus`, newCivilStatuses[currentIndex]);
+        } else {
+          form.setValue(`${prefix}.civilStatus`, '');
+        }
+      }
+    }
+  };
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="max-w-7xl mx-auto p-6 space-y-8">
-      <div className="bg-white p-6 rounded-lg shadow-sm space-y-4 mb-8">
-        <h2 className="text-xl font-semibold border-b pb-2">Informações da Declaração</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <FormField
-            label="Data"
-            register={register}
-            name="date"
-            type="date"
-            error={errors.date?.message}
-          />
-          <FormField
-            label="Cidade"
-            register={register}
-            name="city"
-            options={MUNICIPIOS_BRASIL.map(m => m.nome)}
-            error={errors.city?.message}
-          />
-          <FormField
-            label="Estado"
-            register={register}
-            name="state"
-            options={ESTADOS_BRASILEIROS}
-            error={errors.state?.message}
-          />
-        </div>
-      </div>
-
-      {renderPersonFields('firstPerson', 'Primeiro Declarante')}
-      {renderPersonFields('secondPerson', 'Segundo Declarante')}
-
-      <div className="bg-white p-6 rounded-lg shadow-sm space-y-4">
-        <h2 className="text-xl font-semibold border-b pb-2">Informações da União</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            label="Data de Início da União"
-            register={register}
-            name="unionStartDate"
-            type="date"
-            error={errors.unionStartDate?.message}
-          />
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Regime de Bens</label>
-            <select
-              {...register('propertyRegime')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+    <FormField
+      control={form.control}
+      name={`${prefix}.civilStatus`}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel className="flex items-center gap-2">
+            {label}
+            <Badge
+              variant="outline"
+              className="text-xs cursor-pointer hover:bg-muted transition-colors"
+              onClick={toggleGender}
+              title="Clique para alternar entre masculino e feminino"
             >
-              <option value="COMUNHAO_PARCIAL">Comunhão Parcial de Bens</option>
-              <option value="SEPARACAO_TOTAL">Separação Total de Bens</option>
-              <option value="PARTICIPACAO_FINAL">Participação Final nos Aquestos</option>
-              <option value="COMUNHAO_UNIVERSAL">Comunhão Universal de Bens</option>
-            </select>
-            {errors.propertyRegime && (
-              <p className="mt-1 text-sm text-red-600">{errors.propertyRegime.message}</p>
-            )}
-          </div>
-          <FormField
-            label="Data do Pacto"
-            register={register}
-            name="pactDate"
-            type="date"
-            required={false}
-            error={errors.pactDate?.message}
-          />
-          <FormField
-            label="Cartório do Pacto"
-            register={register}
-            name="pactOffice"
-            required={false}
-            error={errors.pactOffice?.message}
-          />
-          <FormField
-            label="Livro do Pacto"
-            register={register}
-            name="pactBook"
-            required={false}
-            error={errors.pactBook?.message}
-          />
-          <FormField
-            label="Folha do Pacto"
-            register={register}
-            name="pactPage"
-            required={false}
-            error={errors.pactPage?.message}
-          />
-          <FormField
-            label="Termo do Pacto"
-            register={register}
-            name="pactTerm"
-            required={false}
-            error={errors.pactTerm?.message}
-          />
-          <FormField
-            label="Nome do Oficial Registrador"
-            register={register}
-            name="registrarName"
-            options={Object.keys(OFICIAIS_REGISTRADORES)}
-            error={errors.registrarName?.message}
-          />
-        </div>
-      </div>
-
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full bg-primary text-white py-3 px-4 rounded-lg hover:bg-primary-dark disabled:opacity-50 font-medium text-lg"
-      >
-        {isSubmitting ? 'Salvando...' : 'Salvar Registro'}
-      </button>
-    </form>
+              {gender === 'M' ? 'Masculino' : 'Feminino'}
+            </Badge>
+          </FormLabel>
+          <Select onValueChange={field.onChange} value={field.value || ''}>
+            <FormControl>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o estado civil..." />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              {estadosCivis.map(status => (
+                <SelectItem key={status} value={status}>
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
   );
-}
+};
+
+const renderPersonSection = (form: any, prefix: 'firstPerson' | 'secondPerson', title: string, icon: React.ReactNode) => (
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-3">
+        {icon}
+        {title}
+      </CardTitle>
+      <CardDescription>Dados pessoais e documentais do declarante</CardDescription>
+    </CardHeader>
+    <CardContent>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {renderTextInput(form, `${prefix}.name`, 'Nome Completo')}
+        {renderNationalitySelectInput(form, prefix, 'Nacionalidade')}
+        {renderCivilStatusSelectInput(form, prefix, 'Estado Civil')}
+        {renderDateInput(form, `${prefix}.birthDate`, 'Data de Nascimento')}
+        {renderStateSelectInput(form, `${prefix}.birthPlaceState`, 'Estado de Nascimento')}
+        {renderCitySelectInput(form, `${prefix}.birthPlaceState`, `${prefix}.birthPlaceCity`, 'Cidade de Nascimento')}
+        {renderTextInput(form, `${prefix}.profession`, 'Profissão')}
+        {renderTextInput(form, `${prefix}.rg`, 'RG')}
+        {renderTextInput(form, `${prefix}.taxpayerId`, 'CPF', true, '999.999.999-99')}
+        {renderSelectInput(form, `${prefix}.typeRegistry`, 'Tipo de Registro', REGISTRO_CARTORIO)}
+        {renderTextInput(form, `${prefix}.address`, 'Endereço Completo')}
+        {renderTextInput(form, `${prefix}.email`, 'Email')}
+        {renderTextInput(form, `${prefix}.phone`, 'Telefone', true, '(99) 99999-9999')}
+        {renderTextInput(form, `${prefix}.fatherName`, 'Nome do Pai')}
+        {renderTextInput(form, `${prefix}.motherName`, 'Nome da Mãe')}
+        {renderTextInput(form, `${prefix}.registryOffice`, 'Cartório de Registro')}
+        {renderTextInput(form, `${prefix}.registryBook`, 'Livro')}
+        {renderTextInput(form, `${prefix}.registryPage`, 'Folha')}
+        {renderTextInput(form, `${prefix}.registryTerm`, 'Termo')}
+        {renderDateInput(form, `${prefix}.divorceDate`, 'Data do Divórcio', false)}
+        {renderTextInput(form, `${prefix}.newName`, 'Novo Nome Pretendido', false)}
+      </div>
+    </CardContent>
+  </Card>
+);
+
+export const DeclarationForm = ({ declarationId, initialData, onSuccess }: DeclarationFormProps) => {
+  const [isSubmitting, startTransition] = useTransition();
+  const [formError, setFormError] = useState<string | null>(null);
+  const form = useForm<DeclarationFormData>({
+    resolver: zodResolver(declarationSchema),
+    defaultValues: getFormDefaults(initialData)
+  });
+  useEffect(() => {
+    if (initialData) {
+      form.reset(getFormDefaults(initialData));
+    }
+  }, [initialData, form]);
+  const processFormSubmission = useCallback(async (formData: DeclarationFormData) => {
+    startTransition(async () => {
+      setFormError(null);
+      try {
+        const result = await handleFormSubmission(formData, declarationId);
+        const error = showSubmissionResult(result, declarationId, onSuccess);
+        setFormError(error);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Erro ao processar a solicitação';
+        setFormError(errorMessage);
+        toast.error(errorMessage);
+      }
+    });
+  }, [declarationId, onSuccess]);
+  return (
+    <div className="w-full max-w-none mx-auto space-y-6 px-4 xl:px-8">
+      <Card className="border-none bg-gradient-to-r from-primary/5 to-primary/10">
+        <CardHeader className="text-center py-6">
+          <div className="flex items-center justify-center mb-3">
+            <div className="p-2 bg-primary/20 rounded-full">
+              <FileText className="h-6 w-6 text-primary" />
+            </div>
+          </div>
+          <CardTitle className="text-xl font-bold">Termo Declaratório de União Estável</CardTitle>
+          <CardDescription>
+            Preencha os dados abaixo para registrar.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(processFormSubmission)} className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <Building className="h-5 w-5" />
+                Informações da Declaração
+              </CardTitle>
+              <CardDescription>Dados gerais do documento e local de registro</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-end gap-2">
+                <div>
+                  {renderDateInput(form, 'date', 'Data da Declaração')}
+                </div>
+                <div>
+                  {renderStateSelectInput(form, 'state', 'Estado')}
+                </div>
+                <div>
+                  {renderCitySelectInput(form, 'state', 'city', 'Cidade')}
+                </div>
+              </div>
+              <div className="mt-4">
+                {renderTextInput(form, 'stamp', 'Selo', false)}
+              </div>
+            </CardContent>
+          </Card>
+          {renderPersonSection(form, 'firstPerson', 'Primeiro Declarante', <User className="h-5 w-5" />)}
+          {renderPersonSection(form, 'secondPerson', 'Segundo Declarante', <User className="h-5 w-5" />)}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <Heart className="h-5 w-5" />
+                Informações da União Estável
+              </CardTitle>
+              <CardDescription>Dados sobre a união e regime de bens adotado</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {renderDateInput(form, 'unionStartDate', 'Data de Início da União')}
+                <FormField
+                  control={form.control}
+                  name="propertyRegime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Regime de Bens</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o regime..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {PROPERTY_REGIME_OPTIONS.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <Separator />
+              <div className="space-y-4">
+                <h4 className="font-medium text-sm text-muted-foreground">
+                  Pacto Antenupcial (se aplicável)
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {renderDateInput(form, 'pactDate', 'Data do Pacto', false)}
+                  {renderTextInput(form, 'pactOffice', 'Cartório do Pacto', false)}
+                  {renderTextInput(form, 'pactBook', 'Livro do Pacto', false)}
+                  {renderTextInput(form, 'pactPage', 'Folha do Pacto', false)}
+                  {renderTextInput(form, 'pactTerm', 'Termo do Pacto', false)}
+                  {renderSelectInput(form, 'registrarName', 'Oficial Registrador', Object.keys(OFICIAIS_REGISTRADORES))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          {formError && (
+            <Alert variant="destructive">
+              <AlertDescription>{formError}</AlertDescription>
+            </Alert>
+          )}
+          <Button type="submit" disabled={isSubmitting} className="w-full" size="lg">
+            {isSubmitting ? 'Processando...' : declarationId ? 'Atualizar Registro' : 'Criar Registro'}
+          </Button>
+        </form>
+      </Form>
+    </div>
+  );
+};

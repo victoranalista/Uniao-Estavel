@@ -4,7 +4,7 @@ export class AcuityError extends Error {
   constructor(
     message: string,
     public statusCode: number = 500,
-    public details?: any
+    public details?: string
   ) {
     super(message);
     this.name = 'AcuityError';
@@ -66,7 +66,7 @@ export class AcuityService {
         );
       }
 
-      return response.json();
+      return await response.json();
     } catch (error) {
       if (error instanceof AcuityError) {
         throw error;
@@ -74,7 +74,7 @@ export class AcuityService {
       throw new AcuityError(
         'Failed to communicate with Acuity API',
         500,
-        error
+        error instanceof Error ? error.message : String(error)
       );
     }
   }
@@ -89,7 +89,7 @@ export class AcuityService {
       throw new AcuityError(
         'Failed to fetch clients from Acuity',
         error instanceof AcuityError ? error.statusCode : 500,
-        error
+        error instanceof Error ? error.message : String(error)
       );
     }
   }
@@ -97,13 +97,13 @@ export class AcuityService {
   public async getClientById(id: string): Promise<AcuityClient> {
     try {
       const client = await this.fetchWithAuth(`/clients/${id}`);
-      return client;
+      return client as AcuityClient;
     } catch (error) {
       console.error(`Failed to fetch Acuity client with ID ${id}:`, error);
       throw new AcuityError(
         'Failed to fetch client from Acuity',
         error instanceof AcuityError ? error.statusCode : 500,
-        error
+        error instanceof Error ? error.message : String(error)
       );
     }
   }
@@ -129,10 +129,11 @@ export class AcuityService {
             nationality: this.getFieldValue(fields, 'first_person_nationality'),
             civilStatus: this.getFieldValue(fields, 'first_person_civil_status'),
             birthDate: this.getFieldValue(fields, 'first_person_birth_date'),
-            birthPlace: this.getFieldValue(fields, 'first_person_birth_place'),
+            birthPlaceState: this.getFieldValue(fields, 'first_person_birth_place_state'),
+            birthPlaceCity: this.getFieldValue(fields, 'first_person_birth_place_city'),
             profession: this.getFieldValue(fields, 'first_person_profession'),
             rg: this.getFieldValue(fields, 'first_person_rg'),
-            cpf: this.getFieldValue(fields, 'first_person_cpf'),
+            taxpayerId: this.getFieldValue(fields, 'first_person_taxpayerId'),
             address: this.getFieldValue(fields, 'first_person_address'),
             email: this.getFieldValue(fields, 'first_person_email'),
             phone: this.getFieldValue(fields, 'first_person_phone'),
@@ -148,10 +149,11 @@ export class AcuityService {
             nationality: this.getFieldValue(fields, 'second_person_nationality'),
             civilStatus: this.getFieldValue(fields, 'second_person_civil_status'),
             birthDate: this.getFieldValue(fields, 'second_person_birth_date'),
-            birthPlace: this.getFieldValue(fields, 'second_person_birth_place'),
+            birthPlaceState: this.getFieldValue(fields, 'second_person_birth_place_state'),
+            birthPlaceCity: this.getFieldValue(fields, 'second_person_birth_place_city'),
             profession: this.getFieldValue(fields, 'second_person_profession'),
             rg: this.getFieldValue(fields, 'second_person_rg'),
-            cpf: this.getFieldValue(fields, 'second_person_cpf'),
+            taxpayerId: this.getFieldValue(fields, 'second_person_taxpayerId'),
             address: this.getFieldValue(fields, 'second_person_address'),
             email: this.getFieldValue(fields, 'second_person_email'),
             phone: this.getFieldValue(fields, 'second_person_phone'),
@@ -168,7 +170,7 @@ export class AcuityService {
       throw new AcuityError(
         'Failed to map client data',
         400,
-        { clientId: client.id, error }
+        JSON.stringify({ clientId: client.id, error })
       );
     }
   }

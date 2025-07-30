@@ -1,109 +1,138 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Command } from "cmdk";
-import { Search } from 'lucide-react';
-
-interface Person {
-  name: string;
-  nationality: string;
-  civilStatus: string;
-  birthDate: string;
-  birthPlace: string;
-  profession: string;
-  rg: string;
-  cpf: string;
-  address: string;
-  email: string;
-  phone: string;
-  fatherName: string;
-  motherName: string;
-  registryOffice: string;
-  registryBook: string;
-  registryPage: string;
-  registryTerm: string;
-}
-
-interface Declaration {
-  id: string;
-  unionStartDate: string;
-  firstPerson: Person;
-  secondPerson: Person;
-}
+import { useState, useEffect, useCallback } from 'react';
+import { Search, Loader2 } from 'lucide-react';
+import { toast } from "sonner";
+import { searchDeclarationsAction } from "@/app/actions/declarations";
+import { SearchDeclarationResult } from "@/types/declarations";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface DeclarationSearchProps {
-  onDeclarationSelect: (declaration: Declaration) => void;
+  onDeclarationSelect: (declaration: SearchDeclarationResult) => void;
 }
 
-export function DeclarationSearch({ onDeclarationSelect }: DeclarationSearchProps) {
-  const [search, setSearch] = useState('');
-  const [declarations, setDeclarations] = useState<Declaration[]>([]);
-  const [loading, setLoading] = useState(false);
+const MINIMUM_SEARCH_LENGTH = 2;
+const DEBOUNCE_DELAY = 300;
 
-  useEffect(() => {
-    const fetchDeclarations = async () => {
-      if (!search) {
-        setDeclarations([]);
-        return;
-      }
+const formatDeclarationDisplay = (declaration: SearchDeclarationResult) => {
+  const firstPersonName = declaration.firstPerson.name;
+  const secondPersonName = declaration.secondPerson.name;
+  const unionDate = new Date(declaration.unionStartDate).toLocaleDateString('pt-BR');
+  return {
+    title: `${firstPersonName} e ${secondPersonName}`,
+    subtitle: `União iniciada em ${unionDate}`
+  };
+};
 
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/declarations?search=${encodeURIComponent(search)}`);
-        if (!response.ok) throw new Error('Failed to fetch declarations');
-        const data = await response.json();
-        setDeclarations(data);
-      } catch (error) {
-        console.error('Error fetching declarations:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+const fetchDeclarations = async (searchTerm: string) => {
+  if (!searchTerm || searchTerm.length < MINIMUM_SEARCH_LENGTH) {
+    return [];
+  }
+  const result = await searchDeclarationsAction(searchTerm);
+  if (result.success && result.data) {
+    return result.data as SearchDeclarationResult[];
+  } else {
+    toast.error(result.error || 'Erro ao buscar declarações');
+    return [];
+  }
+};
 
-    const debounce = setTimeout(fetchDeclarations, 300);
-    return () => clearTimeout(debounce);
-  }, [search]);
-
+const renderDeclarationItem = (
+  declaration: SearchDeclarationResult,
+  onSelect: (declaration: SearchDeclarationResult) => void
+) => {
+  const display = formatDeclarationDisplay(declaration);
   return (
-    <div className="relative">
-      <Command className="relative rounded-lg border shadow-md">
-        <div className="flex items-center border-b px-3">
-          <Search className="h-4 w-4 shrink-0 opacity-50" />
-          <Command.Input
-            value={search}
-            onValueChange={setSearch}
-            className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="Buscar declaração..."
-          />
+    <div key={declaration.id}>
+      <Button
+        variant="ghost"
+        className="w-full justify-start h-auto p-3"
+        onClick={() => onSelect(declaration)}
+      >
+        <div className="flex flex-col items-start text-left">
+          <span className="font-medium">{display.title}</span>
+          <span className="text-sm text-muted-foreground">{display.subtitle}</span>
+          <Badge variant="outline" className="mt-1">
+            ID: {declaration.id}
+          </Badge>
         </div>
-        {search && (
-          <Command.List className="max-h-[300px] overflow-y-auto p-2">
-            {loading ? (
-              <Command.Loading>Buscando declarações...</Command.Loading>
-            ) : declarations.length > 0 ? (
-              declarations.map(declaration => (
-                <Command.Item
-                  key={declaration.id}
-                  value={`${declaration.firstPerson.name} e ${declaration.secondPerson.name}`}
-                  onSelect={() => onDeclarationSelect(declaration)}
-                  className="flex items-center px-2 py-1.5 text-sm rounded-sm cursor-pointer hover:bg-accent"
-                >
-                  <div className="flex flex-col">
-                    <span className="font-medium">
-                      {declaration.firstPerson.name} e {declaration.secondPerson.name}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      União desde: {new Date(declaration.unionStartDate).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-                </Command.Item>
-              ))
-            ) : (
-              <Command.Empty>Nenhuma declaração encontrada</Command.Empty>
-            )}
-          </Command.List>
-        )}
-      </Command>
+      </Button>
+      <Separator />
+    </div>
+  );
+};
+
+const renderSearchResults = (
+  isLoading: boolean,
+  results: SearchDeclarationResult[],
+  onSelect: (declaration: SearchDeclarationResult) => void
+) => {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-6">
+        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+        <span className="text-sm text-muted-foreground">Buscando declarações...</span>
+      </div>
+    );
+  }
+  if (results.length === 0) {
+    return (
+      <div className="text-center p-6">
+        <span className="text-sm text-muted-foreground">Nenhuma declaração encontrada</span>
+      </div>
+    );
+  }
+  return (
+    <ScrollArea className="max-h-[300px]">
+      {results.map(declaration => renderDeclarationItem(declaration, onSelect))}
+    </ScrollArea>
+  );
+};
+
+export function DeclarationSearch({ onDeclarationSelect }: DeclarationSearchProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [declarationResults, setDeclarationResults] = useState<SearchDeclarationResult[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const performSearch = useCallback(async (searchTerm: string) => {
+    setIsLoading(true);
+    try {
+      const results = await fetchDeclarations(searchTerm);
+      setDeclarationResults(results);
+    } catch (error) {
+      toast.error('Erro ao buscar declarações');
+      setDeclarationResults([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => performSearch(searchQuery), DEBOUNCE_DELAY);
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery, performSearch]);
+  const shouldShowResults = searchQuery.length >= MINIMUM_SEARCH_LENGTH;
+  return (
+    <div className="w-full max-w-md mx-auto">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Buscar declaração por nome..."
+          className="pl-10"
+        />
+      </div>
+      {shouldShowResults && (
+        <Card className="mt-2">
+          <CardContent className="p-0">
+            {renderSearchResults(isLoading, declarationResults, onDeclarationSelect)}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

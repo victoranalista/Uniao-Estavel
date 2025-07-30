@@ -1,22 +1,28 @@
+import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-
-const inter = Inter({ subsets: ['latin'] });
-
-export const metadata: Metadata = {
-  title: 'Cartório Colorado - União Estável',
-  description: 'União Estável',
+import { Toaster } from '@/components/ui/sonner';
+export const metadata = {
+  title: 'CC Napoleão',
+  description: 'Sistema de Registro de União Estável',
 };
-
 export default function RootLayout({
-  children,
+  children
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-br">
-      <body className={inter.className}>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
+        <Toaster />
+      </body>
     </html>
   );
 }

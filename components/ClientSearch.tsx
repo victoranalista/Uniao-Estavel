@@ -1,109 +1,71 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Command } from "cmdk";
 import { Search } from 'lucide-react';
 import { toast } from "sonner";
-
-export interface Client {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  declaration?: {
-    unionStartDate: string;
-    firstPerson: {
-      name: string;
-      nationality: string;
-      civilStatus: string;
-      birthDate: string;
-      birthPlace: string;
-      profession: string;
-      rg: string;
-      cpf: string;
-      address: string;
-      email: string;
-      phone: string;
-      fatherName: string;
-      motherName: string;
-      registryOffice: string;
-      registryBook: string;
-      registryPage: string;
-      registryTerm: string;
-    };
-    secondPerson: {
-      name: string;
-      nationality: string;
-      civilStatus: string;
-      birthDate: string;
-      birthPlace: string;
-      profession: string;
-      rg: string;
-      cpf: string;
-      address: string;
-      email: string;
-      phone: string;
-      fatherName: string;
-      motherName: string;
-      registryOffice: string;
-      registryBook: string;
-      registryPage: string;
-      registryTerm: string;
-    };
-  };
-}
+import { searchAcuityClients, getAcuityClientMapping } from "@/app/actions/acuity";
+import { ClientData, SearchResult } from "@/types/declarations";
 
 interface ClientSearchProps {
-  onClientSelect: (client: Client) => void;
+  onClientSelect: (client: ClientData) => void;
 }
 
+const MINIMUM_SEARCH_LENGTH = 3;
+const DEBOUNCE_DELAY = 300;
+
 export function ClientSearch({ onClientSelect }: ClientSearchProps) {
-  const [search, setSearch] = useState('');
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [clientResults, setClientResults] = useState<ClientData[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchClientData = useCallback(async (searchTerm: string) => {
+    if (!searchTerm || searchTerm.length < MINIMUM_SEARCH_LENGTH) {
+      setClientResults([]);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result: SearchResult<ClientData[]> = await searchAcuityClients(searchTerm);
+      
+      if (result.success && result.data) {
+        setClientResults(result.data);
+      } else {
+        toast.error(result.error || 'Erro ao buscar clientes');
+        setClientResults([]);
+      }
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      toast.error('Erro ao buscar clientes do Acuity');
+      setClientResults([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchClients = async () => {
-      if (!search || search.length < 3) {
-        setClients([]);
-        return;
-      }
+    const debounceTimer = setTimeout(() => fetchClientData(searchQuery), DEBOUNCE_DELAY);
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery, fetchClientData]);
 
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/acuity/clients?search=${encodeURIComponent(search)}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch clients');
-        }
-        const data = await response.json();
-        setClients(data.data || []);
-      } catch (error) {
-        console.error('Error fetching clients:', error);
-        toast.error('Erro ao buscar clientes do Acuity');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const debounce = setTimeout(fetchClients, 300);
-    return () => clearTimeout(debounce);
-  }, [search]);
-
-  const handleSelect = async (clientId: string) => {
+  const handleClientSelection = useCallback(async (clientId: string) => {
     try {
-      const response = await fetch(`/api/acuity/mapping?clientId=${clientId}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch client details');
+      const result: SearchResult<ClientData> = await getAcuityClientMapping(clientId);
+      
+      if (result.success && result.data) {
+        onClientSelect(result.data);
+        toast.success('Dados do cliente importados com sucesso');
+      } else {
+        toast.error(result.error || 'Erro ao importar dados');
       }
-      const data = await response.json();
-      onClientSelect(data.data);
-      toast.success('Dados do cliente importados com sucesso');
     } catch (error) {
       console.error('Error fetching client details:', error);
       toast.error('Erro ao importar dados do cliente');
     }
-  };
+  }, [onClientSelect]);
+
+  const shouldShowResults = searchQuery.length >= MINIMUM_SEARCH_LENGTH;
 
   return (
     <div className="relative">
@@ -111,22 +73,23 @@ export function ClientSearch({ onClientSelect }: ClientSearchProps) {
         <div className="flex items-center border-b px-3">
           <Search className="h-4 w-4 shrink-0 opacity-50" />
           <Command.Input
-            value={search}
-            onValueChange={setSearch}
+            value={searchQuery}
+            onValueChange={setSearchQuery}
             className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
             placeholder="Digite o nome ou email do cliente..."
           />
         </div>
-        {search.length >= 3 && (
+        
+        {shouldShowResults && (
           <Command.List className="max-h-[300px] overflow-y-auto p-2">
-            {loading ? (
+            {isLoading ? (
               <Command.Loading>Buscando clientes...</Command.Loading>
-            ) : clients.length > 0 ? (
-              clients.map(client => (
+            ) : clientResults.length > 0 ? (
+              clientResults.map(client => (
                 <Command.Item
                   key={client.id}
                   value={`${client.firstName} ${client.lastName}`}
-                  onSelect={() => handleSelect(client.id)}
+                  onSelect={() => handleClientSelection(client.id)}
                   className="flex items-center px-2 py-1.5 text-sm rounded-sm cursor-pointer hover:bg-accent"
                 >
                   <div className="flex flex-col">

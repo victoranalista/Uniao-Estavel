@@ -24,10 +24,11 @@ export interface AcuityFormField {
     nationality: string;
     civilStatus: string;
     birthDate: string;
-    birthPlace: string;
+    birthPlaceState: string;
+    birthPlaceCity: string;
     profession: string;
     rg: string;
-    cpf: string;
+    taxpayerId: string;
     address: string;
     email: string;
     phone: string;
