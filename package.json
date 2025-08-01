@@ -78,6 +78,7 @@
     "react-day-picker": "^9.8.1",
     "react-dom": "^19",
     "react-hook-form": "^7.61.1",
+    "react-pdf": "^10.0.1",
     "react-resizable-panels": "^3.0.4",
     "recharts": "^3.1.0",
     "solid@latest": "link:@heroicons/react/24/solid@latest",

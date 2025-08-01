@@ -1,10 +1,13 @@
 import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
+import Providers from './providers';
+
 export const metadata = {
   title: 'CC Napoleão',
   description: 'Sistema de Registro de União Estável',
 };
+
 export default function RootLayout({
   children
 }: {
@@ -13,15 +16,17 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
-        <Toaster />
+        <Providers>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+          </ThemeProvider>
+          <Toaster />
+        </Providers>
       </body>
     </html>
   );

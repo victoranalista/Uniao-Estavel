@@ -2,11 +2,26 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, FileText, Plus, RefreshCw } from 'lucide-react';
-import { RegistrationData, RegistrationSearchParams } from "@/types/declarations";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Search, FileText, Plus, RefreshCw, Eye, Edit } from 'lucide-react';
+import { RegistrationSearchParams } from "@/types/declarations";
+
+type RegistrationData = {
+  id: string;
+  protocolNumber: string;
+  firstPersonName: string;
+  secondPersonName: string;
+  unionDate: string;
+  bookNumber: string;
+  pageNumber: number;
+  termNumber: number;
+};
 
 interface DashboardAction {
   id: string;
@@ -14,6 +29,7 @@ interface DashboardAction {
   description: string;
   icon: React.ComponentType<{ className?: string }>;
   route: string;
+  buttonText: string;
 }
 
 const DASHBOARD_ACTIONS: DashboardAction[] = [
@@ -22,23 +38,55 @@ const DASHBOARD_ACTIONS: DashboardAction[] = [
     title: 'Novo Registro',
     description: 'Criar nova declaração de união estável',
     icon: Plus,
-    route: '/dashboard/new-registration'
+    route: '/dashboard/new-registration',
+    buttonText: 'Registrar União'
   },
   {
     id: 'second-copy',
     title: 'Segunda Via',
     description: 'Emitir segunda via de declaração',
     icon: FileText,
-    route: '/dashboard/documents'
+    route: '/dashboard/documents',
+    buttonText: 'Emitir Documento'
   },
   {
     id: 'update',
     title: 'Atualização',
-    description: 'Atualizar informações de registro\nUpload de selo',
+    description: 'Atualizar informações de registro e upload de selo',
     icon: RefreshCw,
-    route: '/dashboard/update'
+    route: '/dashboard/update',
+    buttonText: 'Atualizar'
   }
 ];
+
+const ActionCard = ({ action, onNavigate }: { action: DashboardAction; onNavigate: (route: string) => void }) => {
+  const IconComponent = action.icon;
+  
+  return (
+    <Card className="hover:shadow-lg transition-all duration-300 hover:scale-105">
+      <CardHeader className="text-center pb-4">
+        <div className="flex justify-center mb-4">
+          <div className="p-4 rounded-full bg-primary/10">
+            <IconComponent className="h-8 w-8 text-primary" />
+          </div>
+        </div>
+        <CardTitle className="text-xl">{action.title}</CardTitle>
+        <CardDescription className="text-center">
+          {action.description}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button 
+          className="w-full" 
+          onClick={() => onNavigate(action.route)}
+          size="lg"
+        >
+          {action.buttonText}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+};
 
 const SearchField = ({ 
   label, 
@@ -53,11 +101,10 @@ const SearchField = ({
   onChange: (value: string) => void;
   type?: string;
 }) => (
-  <div>
-    <label className="block text-sm font-medium mb-1">
-      {label}
-    </label>
+  <div className="space-y-2">
+    <Label htmlFor={label.toLowerCase().replace(/\s+/g, '-')}>{label}</Label>
     <Input
+      id={label.toLowerCase().replace(/\s+/g, '-')}
       type={type}
       placeholder={placeholder}
       value={value || ''}
@@ -122,159 +169,170 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black to-gray-800">
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-white">
-            Cartório Colorado - Sistema de União Estável
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto p-6 space-y-8">
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl font-bold tracking-tight">
+            Sistema de União Estável
           </h1>
+          <p className="text-muted-foreground text-lg">
+            RCPN
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {DASHBOARD_ACTIONS.map((action) => {
-            const IconComponent = action.icon;
-            return (
-              <Card key={action.id} className="p-6 hover:shadow-lg transition-shadow">
-                <div className="flex flex-col items-center text-center space-y-4">
-                  <div className="p-3 rounded-full">
-                    <IconComponent className="h-6 w-6" />
-                  </div>
-                  <h2 className="text-xl font-semibold">{action.title}</h2>
-                  <p className="whitespace-pre-line">{action.description}</p>
-                  <Button 
-                    className="w-full"
-                    onClick={() => navigateToAction(action.route)}
-                  >
-                    {action.id === 'new-registration' && 'Registrar União'}
-                    {action.id === 'second-copy' && 'Emitir Documento'}
-                    {action.id === 'update' && 'Atualizar'}
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
+        <Separator />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {DASHBOARD_ACTIONS.map((action) => (
+            <ActionCard 
+              key={action.id} 
+              action={action} 
+              onNavigate={navigateToAction}
+            />
+          ))}
         </div>
 
-        <Card className="p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Buscar Registro</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            <SearchField
-              label="Número de Protocolo"
-              placeholder="Digite o número do protocolo"
-              value={searchParameters.protocolNumber}
-              onChange={(value) => updateSearchParameter('protocolNumber', value)}
-            />
-            <SearchField
-              label="Nome do Primeiro Declarante"
-              placeholder="Digite o nome"
-              value={searchParameters.firstPersonName}
-              onChange={(value) => updateSearchParameter('firstPersonName', value)}
-            />
-            <SearchField
-              label="Nome do Segundo Declarante"
-              placeholder="Digite o nome"
-              value={searchParameters.secondPersonName}
-              onChange={(value) => updateSearchParameter('secondPersonName', value)}
-            />
-            <SearchField
-              label="Livro"
-              placeholder="UE-1"
-              value={searchParameters.bookNumber}
-              onChange={(value) => updateSearchParameter('bookNumber', value)}
-            />
-            <SearchField
-              label="Folha"
-              placeholder="1"
-              type="number"
-              value={searchParameters.pageNumber}
-              onChange={(value) => updateSearchParameter('pageNumber', value ? parseInt(value) : undefined)}
-            />
-            <SearchField
-              label="Termo"
-              placeholder="1"
-              type="number"
-              value={searchParameters.termNumber}
-              onChange={(value) => updateSearchParameter('termNumber', value ? parseInt(value) : undefined)}
-            />
-          </div>
-          
-          <Button
-            onClick={executeSearch}
-            disabled={isSearching}
-            className="w-full"
-          >
-            {isSearching ? (
-              "Buscando..."
-            ) : (
-              <>
-                <Search className="w-4 h-4 mr-2" />
-                Buscar
-              </>
-            )}
-          </Button>
+        <Separator />
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5" />
+              Buscar Registro
+            </CardTitle>
+            <CardDescription>
+              Pesquise por registros utilizando os filtros abaixo
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <SearchField
+                label="Número de Protocolo"
+                placeholder="Ex: 2024001"
+                value={searchParameters.protocolNumber}
+                onChange={(value) => updateSearchParameter('protocolNumber', value)}
+              />
+              <SearchField
+                label="Primeiro Declarante"
+                placeholder="Nome completo"
+                value={searchParameters.firstPersonName}
+                onChange={(value) => updateSearchParameter('firstPersonName', value)}
+              />
+              <SearchField
+                label="Segundo Declarante"
+                placeholder="Nome completo"
+                value={searchParameters.secondPersonName}
+                onChange={(value) => updateSearchParameter('secondPersonName', value)}
+              />
+              <SearchField
+                label="Livro"
+                placeholder="Ex: UE-1"
+                value={searchParameters.bookNumber}
+                onChange={(value) => updateSearchParameter('bookNumber', value)}
+              />
+              <SearchField
+                label="Folha"
+                placeholder="Número da folha"
+                type="number"
+                value={searchParameters.pageNumber}
+                onChange={(value) => updateSearchParameter('pageNumber', value ? parseInt(value) : undefined)}
+              />
+              <SearchField
+                label="Termo"
+                placeholder="Número do termo"
+                type="number"
+                value={searchParameters.termNumber}
+                onChange={(value) => updateSearchParameter('termNumber', value ? parseInt(value) : undefined)}
+              />
+            </div>
+            
+            <Button
+              onClick={executeSearch}
+              disabled={isSearching}
+              className="w-full"
+              size="lg"
+            >
+              {isSearching ? (
+                "Buscando..."
+              ) : (
+                <>
+                  <Search className="w-4 h-4 mr-2" />
+                  Buscar Registros
+                </>
+              )}
+            </Button>
+          </CardContent>
         </Card>
 
         {searchResults.length > 0 && (
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Resultados da Busca</h2>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                      Protocolo
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                      Declarantes
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                      Data da União
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                      Livro/Folha/Termo
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {searchResults.map((registration) => (
-                    <tr key={registration.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {registration.protocolNumber}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {registration.firstPersonName} e {registration.secondPersonName}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {formatDate(registration.unionDate)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {registration.bookNumber}/{registration.pageNumber}/{registration.termNumber}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mr-2"
-                          onClick={() => navigateToRegistration(registration.id, 'view')}
-                        >
-                          Visualizar
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigateToRegistration(registration.id, 'edit')}
-                        >
-                          Editar
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Resultados da Busca</CardTitle>
+              <CardDescription>
+                {searchResults.length} registro(s) encontrado(s)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Protocolo</TableHead>
+                      <TableHead>Declarantes</TableHead>
+                      <TableHead>Data da União</TableHead>
+                      <TableHead>Localização</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {searchResults.map((registration) => (
+                      <TableRow key={registration.id}>
+                        <TableCell className="font-medium">
+                          <Badge variant="outline">
+                            {registration.protocolNumber}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="font-medium">{registration.firstPersonName}</div>
+                            <div className="text-sm text-muted-foreground">{registration.secondPersonName}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {formatDate(registration.unionDate)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <div>Livro: {registration.bookNumber}</div>
+                            <div>Folha: {registration.pageNumber} | Termo: {registration.termNumber}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => navigateToRegistration(registration.id, 'view')}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              Ver
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => navigateToRegistration(registration.id, 'edit')}
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              Editar
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
           </Card>
         )}
       </div>

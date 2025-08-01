@@ -58,7 +58,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     authorized: ({ request, auth }) => {
       if (!!auth === false) return !!auth;
       const pathname = request.nextUrl.pathname;
-      if (pathname.startsWith('/dashboard/settings')) {
+      if (pathname.startsWith('/settings')) {
         if (auth.user.role !== 'ADMIN') {
           const url = request.nextUrl.clone();
           url.pathname = '/dashboard/unauthorized';

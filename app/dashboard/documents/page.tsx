@@ -6,12 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search } from 'lucide-react';
 import { toast } from "sonner";
-import { DeclarationData } from "@/types/declarations";
-
-interface SearchFormData {
-  protocolNumber: string;
-  taxpayerId: string;
-}
+import { searchDocumentsAction, generateSecondCopyAction } from "@/app/dashboard/search/actions/searchActions";
+import type { SearchFormData, DeclarationData } from "@/types/declarations";
 
 const SearchField = ({ 
   label, 
@@ -39,29 +35,8 @@ const SearchField = ({
   </div>
 );
 
-const DeclarationDisplayCard = ({ declarationData }: { declarationData: DeclarationData }) => {
-  const formatDate = (dateString: string) => 
-    new Date(dateString).toLocaleDateString('pt-BR');
-
-  return (
-    <Card className="p-6 mb-8">
-      <h2 className="text-xl font-semibold mb-4">Declaração Encontrada</h2>
-      <div className="space-y-2">
-        <p>
-          <strong>Declarantes:</strong> {declarationData.firstPerson.name} e {declarationData.secondPerson.name}
-        </p>
-        <p>
-          <strong>Data da União:</strong> {formatDate(declarationData.unionStartDate)}
-        </p>
-        <p>
-          <strong>Data de Registro:</strong> {formatDate(declarationData.createdAt)}
-        </p>
-        <p>
-          <strong>Regime de Bens:</strong> {getPropertyRegimeLabel(declarationData.propertyRegime)}
-        </p>
-      </div>
-    </Card>
-  );
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('pt-BR');
 };
 
 const getPropertyRegimeLabel = (regime: string): string => {
@@ -74,13 +49,90 @@ const getPropertyRegimeLabel = (regime: string): string => {
   return regimeLabels[regime] || regime;
 };
 
+const DeclarationDisplayCard = ({ declarationData }: { declarationData: DeclarationData }) => (
+  <Card className="p-6 mb-8">
+    <h2 className="text-xl font-semibold mb-4">Declaração Encontrada</h2>
+    <div className="space-y-2">
+      <p>
+        <strong>Declarantes:</strong> {declarationData.firstPerson.name} e {declarationData.secondPerson.name}
+      </p>
+      <p>
+        <strong>Data da União:</strong> {formatDate(declarationData.unionStartDate)}
+      </p>
+      <p>
+        <strong>Data de Registro:</strong> {formatDate(declarationData.createdAt)}
+      </p>
+      <p>
+        <strong>Regime de Bens:</strong> {getPropertyRegimeLabel(declarationData.propertyRegime)}
+      </p>
+    </div>
+  </Card>
+);
+
+const downloadPdfFile = (pdfContent: string, filename: string) => {
+  const byteCharacters = atob(pdfContent);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: 'application/pdf' });
+  const url = window.URL.createObjectURL(blob);
+  const downloadLink = document.createElement('a');
+  downloadLink.href = url;
+  downloadLink.download = filename;
+  document.body.appendChild(downloadLink);
+  downloadLink.click();
+  downloadLink.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+const extractPersonFromParticipant = (participant: any) => ({
+  name: participant?.person?.identity?.fullName || '',
+  nationality: participant?.person?.identity?.nationality || '',
+  civilStatus: participant?.person?.civilStatuses?.[0]?.status || '',
+  birthDate: participant?.person?.identity?.birthDate || '',
+  birthPlaceState: participant?.person?.addresses?.[0]?.state || '',
+  birthPlaceCity: participant?.person?.addresses?.[0]?.city || '',
+  profession: participant?.person?.professional?.profession || '',
+  rg: participant?.person?.documents?.rg || '',
+  taxpayerId: participant?.person?.identity?.taxId || '',
+  address: participant?.person?.addresses?.[0]?.street || '',
+  email: participant?.person?.contact?.email || '',
+  phone: participant?.person?.contact?.phone || '',
+  fatherName: participant?.person?.family?.fatherName || '',
+  motherName: participant?.person?.family?.motherName || '',
+  registryOffice: participant?.person?.registry?.registryOffice || '',
+  registryBook: participant?.person?.registry?.registryBook || '',
+  registryPage: participant?.person?.registry?.registryPage || '',
+  registryTerm: participant?.person?.registry?.registryTerm || '',
+});
+
+const mapDeclarationFromResponse = (declaration: any): DeclarationData => ({
+  id: declaration.id,
+  createdAt: declaration.createdAt,
+  updatedAt: declaration.updatedAt,
+  declarationDate: declaration.declarationDate,
+  city: declaration.city,
+  state: declaration.state,
+  unionStartDate: declaration.unionStartDate,
+  propertyRegime: declaration.propertyRegime,
+  firstPerson: extractPersonFromParticipant(declaration.participants?.[0]),
+  secondPerson: extractPersonFromParticipant(declaration.participants?.[1]),
+  registryInfo: declaration.registryInfo,
+  prenuptial: declaration.prenuptial,
+  date: '',
+  pactDate: undefined
+});
+
 export default function Documents() {
   const [searchFormData, setSearchFormData] = useState<SearchFormData>({
     protocolNumber: '',
     taxpayerId: ''
   });
   const [foundDeclaration, setFoundDeclaration] = useState<DeclarationData | null>(null);
-  const [isSearching, startTransition] = useTransition();
+  const [isSearching, startSearchTransition] = useTransition();
+  const [isGeneratingPdf, startPdfTransition] = useTransition();
 
   const updateSearchField = useCallback(<K extends keyof SearchFormData>(
     field: K,
@@ -89,86 +141,39 @@ export default function Documents() {
     setSearchFormData(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  const executeDeclarationSearch = useCallback(async () => {
+  const executeDeclarationSearch = useCallback(() => {
     const { protocolNumber, taxpayerId } = searchFormData;
-    const searchTerm = protocolNumber || taxpayerId;
-
-    if (!searchTerm) {
-      toast.error('Digite um taxpayerId ou protocolo para buscar');
+    if (!protocolNumber && !taxpayerId) {
+      toast.error('Digite um CPF ou protocolo para buscar');
       return;
     }
-
-    startTransition(async () => {
-      try {
-        const response = await fetch(`/api/registrations?search=${encodeURIComponent(searchTerm)}`);
-        
-        if (!response.ok) {
-          throw new Error('Erro ao buscar declaração');
-        }
-        
-        const data: DeclarationData[] = await response.json();
-        
-        if (data.length === 0) {
-          toast.error('Nenhuma declaração encontrada');
-          setFoundDeclaration(null);
-          return;
-        }
-
-        setFoundDeclaration(data[0]);
+    startSearchTransition(async () => {
+      const result = await searchDocumentsAction({ protocolNumber, taxpayerId });
+      if (result.success && result.data) {
+        const mappedDeclaration = mapDeclarationFromResponse(result.data);
+        setFoundDeclaration(mappedDeclaration);
         toast.success('Declaração encontrada');
-      } catch (error) {
-        console.error('Search error:', error);
-        toast.error('Erro ao buscar declaração');
+      } else {
         setFoundDeclaration(null);
+        toast.error(result.error || 'Nenhuma declaração encontrada');
       }
     });
   }, [searchFormData]);
 
-  const generatePDFDocument = useCallback(async () => {
+  const generatePDFDocument = useCallback(() => {
     if (!foundDeclaration) {
       toast.error('Nenhuma declaração selecionada');
       return;
     }
-
-    try {
-      const pdfResponse = await fetch('/api/generate-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(foundDeclaration),
-      });
-
-      if (!pdfResponse.ok) {
-        throw new Error('Erro ao gerar PDF');
-      }
-
-      const result = await pdfResponse.json();
-      
-      if (result.success && result.pdfContent) {
-        const byteCharacters = atob(result.pdfContent);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: 'application/pdf' });
-        
-        const url = window.URL.createObjectURL(blob);
-        const downloadLink = document.createElement('a');
-        downloadLink.href = url;
-        downloadLink.download = result.filename || `segunda-via-declaracao-${foundDeclaration.id}.pdf`;
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        downloadLink.remove();
-        window.URL.revokeObjectURL(url);
-
+    startPdfTransition(async () => {
+      const result = await generateSecondCopyAction(foundDeclaration.id);
+      if (result.success && result.data?.pdfContent && result.data?.filename) {
+        downloadPdfFile(result.data.pdfContent, result.data.filename);
         toast.success('PDF gerado com sucesso');
       } else {
-        throw new Error(result.error || 'Erro ao processar PDF');
+        toast.error(result.error || 'Erro ao gerar PDF');
       }
-    } catch (error) {
-      console.error('PDF generation error:', error);
-      toast.error('Erro ao gerar PDF');
-    }
+    });
   }, [foundDeclaration]);
 
   const hasSearchCriteria = searchFormData.protocolNumber || searchFormData.taxpayerId;
@@ -190,8 +195,8 @@ export default function Documents() {
               onChange={(value) => updateSearchField('protocolNumber', value)}
             />
             <SearchField
-              label="taxpayerId do Declarante"
-              placeholder="Digite o taxpayerId (com ou sem pontuação)"
+              label="CPF do Declarante"
+              placeholder="Digite o CPF (com ou sem pontuação)"
               value={searchFormData.taxpayerId}
               onChange={(value) => updateSearchField('taxpayerId', value)}
             />
@@ -221,9 +226,10 @@ export default function Documents() {
               </p>
               <Button
                 onClick={generatePDFDocument}
+                disabled={isGeneratingPdf}
                 className="w-full"
               >
-                Gerar PDF da Segunda Via
+                {isGeneratingPdf ? "Gerando PDF..." : "Gerar PDF da Segunda Via"}
               </Button>
             </Card>
           </>

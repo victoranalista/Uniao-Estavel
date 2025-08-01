@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
   redirects: async () => [
     {
       source: '/',
-      destination: '/posting',
+      destination: '/dashboard',
       permanent: true
     }
   ]

@@ -7,18 +7,16 @@ import {
   SheetTitle
 } from '@/components/ui/sheet';
 import { Home, Menu } from 'lucide-react';
-import Tabs from './Tabs';
 import { NavItem } from './nav-item';
+import Tabs from './Tabs';
 import Image from 'next/image';
-import Link from 'next/link';
 import Providers from '../providers';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { User } from '../user';
 import DarkMode from '@/components/DarkMode';
 import { auth } from '@/lib/auth';
 
 const labelsAndLinks = {
-  deliveries: {
+  home: {
     label: 'Home',
     link: '/dashboard'
   }
@@ -40,7 +38,6 @@ export default async function DashboardLayout({
             <MobileNav role={role} />
             <div className="ml-auto flex items-center gap-4">
               <DarkMode />
-              <User />
             </div>
           </header>
           <main className="flex flex-col flex-1 min-h-0 gap-2 p-4 sm:px-6 sm:py-0 md:gap-4">
@@ -64,13 +61,13 @@ function DesktopNav(props: { role?: string }) {
           height={32}
           className="transition-all group-hover:scale-110 dark:invert"
         ></Image>
-        <span className="sr-only">CC Catarina</span>
-        <NavItem
-          href={labelsAndLinks.deliveries.link}
-          label={labelsAndLinks.deliveries.label}
+          <NavItem
+          href={labelsAndLinks.home.link}
+          label={labelsAndLinks.home.label}
         >
-          <Home className="h-5 w-5" />
+          <Home className="h-5 w-5 " />
         </NavItem>
+        <span className="sr-only">CC Catarina</span>
       </nav>
     </aside>
   );
@@ -100,16 +97,6 @@ function MobileNav(props: { role?: string }) {
             height={32}
             className="transition-all group-hover:scale-110 dark:invert"
           ></Image>
-          <span className="sr-only">CC Catarina</span>
-          <Link
-            href={labelsAndLinks.deliveries.link}
-            className="flex items-center gap-4 px-2.5 text-foreground"
-            prefetch={true}
-            passHref
-          >
-            <Home className="h-5 w-5" />
-            {labelsAndLinks.deliveries.label}
-          </Link>
         </nav>
       </SheetContent>
     </Sheet>

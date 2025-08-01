@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { validatetaxpayerId } from '@/utils/validators';
+import { validatetaxpayerId } from '@/lib/validators';
 import { getNextBookNumbers } from '@/utils/bookControl';
 import { OFICIAIS_REGISTRADORES } from '@/utils/constants';
 import { PDFDocument, rgb, StandardFonts, PDFImage } from 'pdf-lib';

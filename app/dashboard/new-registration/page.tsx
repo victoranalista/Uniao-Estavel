@@ -2,14 +2,26 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DeclarationForm } from "@/components/DeclarationForm";
-import { ClientSearch } from "@/components/ClientSearch";
+import { DeclarationForm } from "@/app/dashboard/new-registration/components/DeclarationForm";
+import { ClientSearch } from "@/app/dashboard/search/components/ClientSearch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle, FileText, Users } from "lucide-react";
-import { ClientData } from "@/types/declarations";
+import { ClientData, MappedDeclaration } from "@/app/types/declarations";
+
+const mapClientToFormData = (declaration: MappedDeclaration) => ({
+  unionStartDate: declaration.unionStartDate,
+  firstPerson: {
+    ...declaration.firstPerson,
+    typeRegistry: 'NASCIMENTO'
+  },
+  secondPerson: {
+    ...declaration.secondPerson,
+    typeRegistry: 'NASCIMENTO'
+  }
+});
 
 const SuccessNotification = ({ isVisible }: { isVisible: boolean }) => {
   if (!isVisible) return null;
@@ -86,7 +98,7 @@ export default function NewRegistration() {
         />
         <SuccessNotification isVisible={showSuccess} />
         <DeclarationForm 
-          initialData={selectedClientData?.declaration || {}} 
+          initialData={selectedClientData?.declaration ? mapClientToFormData(selectedClientData.declaration) : undefined} 
           onSuccess={handleSuccessNavigation}
         />
       </div>

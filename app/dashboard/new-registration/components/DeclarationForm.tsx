@@ -3,10 +3,7 @@
 import { useState, useCallback, useEffect, useTransition, forwardRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { toast } from 'sonner';
-import { validatetaxpayerId } from '@/utils/validators';
-import { createDeclarationAction, updateDeclarationAction } from '@/app/actions/declarations';
 import {
   getNacionalidadesPorGenero,
   getEstadosCivisPorGenero,
@@ -22,9 +19,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { FileText, User, Heart, Building } from "lucide-react";
-import { DeclarationData } from '@/types/declarations';
-import { useFilteredCities } from '@/hooks/use-filtered-cities';
-import { useStates } from '@/hooks/use-states';
+import { useFilteredCities, useStates } from '@/app/dashboard/new-registration/components/use-filteredMaps';
+import { updateDeclarationAction } from '../../update/actions/update-declaration';
+import { createDeclarationAction } from '../actions/create-declaration';
+import { declarationFormSchema, type DeclarationFormData } from '../actions/schemas';
 
 const applyMask = (value: string, mask: string): string => {
   if (!value) return '';
@@ -66,53 +64,9 @@ const MaskedInput = forwardRef<HTMLInputElement, {
 
 MaskedInput.displayName = 'MaskedInput';
 
-const personSchema = z.object({
-  name: z.string().min(1, 'Nome obrigatório'),
-  nationality: z.string().min(1, 'Nacionalidade obrigatória'),
-  civilStatus: z.string().min(1, 'Estado civil obrigatório'),
-  typeRegistry: z.string().min(1, 'Tipo de registro obrigatório'),
-  RegistrationStatus: z.string().optional(),
-  birthDate: z.string().min(1, 'Data de nascimento obrigatória'),
-  birthPlaceState: z.string().min(1, 'Estado de nascimento obrigatório'),
-  birthPlaceCity: z.string().min(1, 'Cidade de nascimento obrigatória'),
-  profession: z.string().min(1, 'Profissão obrigatória'),
-  rg: z.string().min(1, 'RG obrigatório'),
-  taxpayerId: z.string().min(11, 'CPF inválido').refine(validatetaxpayerId, 'CPF inválido'),
-  address: z.string().min(1, 'Endereço obrigatório'),
-  email: z.email('Email inválido'),
-  phone: z.string().min(14, 'Telefone inválido'),
-  fatherName: z.string().min(1, 'Nome do pai obrigatório'),
-  motherName: z.string().min(1, 'Nome da mãe obrigatório'),
-  registryOffice: z.string().min(1, 'Cartório obrigatório'),
-  registryBook: z.string().min(1, 'Livro obrigatório'),
-  registryPage: z.string().min(1, 'Folha obrigatória'),
-  registryTerm: z.string().min(1, 'Termo obrigatório'),
-  divorceDate: z.string().optional(),
-  newName: z.string().optional(),
-});
-
-const declarationSchema = z.object({
-  date: z.string().min(1, 'Data obrigatória'),
-  city: z.string().min(1, 'Cidade obrigatória'),
-  state: z.string().min(1, 'Estado obrigatório'),
-  firstPerson: personSchema,
-  secondPerson: personSchema,
-  unionStartDate: z.string().min(1, 'Data de início da união obrigatória'),
-  propertyRegime: z.enum(['COMUNHAO_PARCIAL', 'SEPARACAO_TOTAL', 'PARTICIPACAO_FINAL', 'COMUNHAO_UNIVERSAL'] as const),
-  stamp: z.string().optional(),
-  pactDate: z.string().optional(),
-  pactOffice: z.string().optional(),
-  pactBook: z.string().optional(),
-  pactPage: z.string().optional(),
-  pactTerm: z.string().optional(),
-  registrarName: z.string().min(1, 'Nome do oficial obrigatório'),
-});
-
-type DeclarationFormData = z.infer<typeof declarationSchema>;
-
 interface DeclarationFormProps {
   declarationId?: string;
-  initialData?: Partial<DeclarationData>;
+  initialData?: Partial<DeclarationFormData>;
   onSuccess?: () => void;
 }
 
@@ -123,15 +77,15 @@ const PROPERTY_REGIME_OPTIONS = [
   { value: 'COMUNHAO_UNIVERSAL', label: 'Comunhão Universal de Bens' },
 ] as const;
 
-const getFormDefaults = (initialData?: Partial<DeclarationData>): DeclarationFormData => ({
+const getFormDefaults = (initialData?: Partial<DeclarationFormData>) => ({
   city: initialData?.city || 'Brasília',
   state: initialData?.state || 'DF',
-  date: initialData?.date ? new Date(initialData.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+  date: initialData?.date || new Date().toISOString().split('T')[0],
   propertyRegime: initialData?.propertyRegime || 'COMUNHAO_PARCIAL',
-  unionStartDate: initialData?.unionStartDate ? new Date(initialData.unionStartDate).toISOString().split('T')[0] : '',
+  unionStartDate: initialData?.unionStartDate || '',
   registrarName: initialData?.registrarName || '',
   stamp: initialData?.stamp || '',
-  pactDate: initialData?.pactDate ? new Date(initialData.pactDate).toISOString().split('T')[0] : '',
+  pactDate: initialData?.pactDate || '',
   pactOffice: initialData?.pactOffice || '',
   pactBook: initialData?.pactBook || '',
   pactPage: initialData?.pactPage || '',
@@ -140,8 +94,7 @@ const getFormDefaults = (initialData?: Partial<DeclarationData>): DeclarationFor
     name: initialData?.firstPerson?.name || '',
     nationality: initialData?.firstPerson?.nationality || '',
     civilStatus: initialData?.firstPerson?.civilStatus || '',
-    typeRegistry: initialData?.firstPerson?.typeRegistry || '',
-    birthDate: initialData?.firstPerson?.birthDate ? new Date(initialData.firstPerson.birthDate).toISOString().split('T')[0] : '',
+    birthDate: initialData?.firstPerson?.birthDate || '',
     birthPlaceState: initialData?.firstPerson?.birthPlaceState || '',
     birthPlaceCity: initialData?.firstPerson?.birthPlaceCity || '',
     profession: initialData?.firstPerson?.profession || '',
@@ -156,15 +109,14 @@ const getFormDefaults = (initialData?: Partial<DeclarationData>): DeclarationFor
     registryBook: initialData?.firstPerson?.registryBook || '',
     registryPage: initialData?.firstPerson?.registryPage || '',
     registryTerm: initialData?.firstPerson?.registryTerm || '',
-    divorceDate: initialData?.firstPerson?.divorceDate ? new Date(initialData.firstPerson.divorceDate).toISOString().split('T')[0] : '',
+    divorceDate: initialData?.firstPerson?.divorceDate || '',
     newName: initialData?.firstPerson?.newName || '',
   },
   secondPerson: {
     name: initialData?.secondPerson?.name || '',
     nationality: initialData?.secondPerson?.nationality || '',
     civilStatus: initialData?.secondPerson?.civilStatus || '',
-    typeRegistry: initialData?.secondPerson?.typeRegistry || '',
-    birthDate: initialData?.secondPerson?.birthDate ? new Date(initialData.secondPerson.birthDate).toISOString().split('T')[0] : '',
+    birthDate: initialData?.secondPerson?.birthDate || '',
     birthPlaceState: initialData?.secondPerson?.birthPlaceState || '',
     birthPlaceCity: initialData?.secondPerson?.birthPlaceCity || '',
     profession: initialData?.secondPerson?.profession || '',
@@ -179,33 +131,101 @@ const getFormDefaults = (initialData?: Partial<DeclarationData>): DeclarationFor
     registryBook: initialData?.secondPerson?.registryBook || '',
     registryPage: initialData?.secondPerson?.registryPage || '',
     registryTerm: initialData?.secondPerson?.registryTerm || '',
-    divorceDate: initialData?.secondPerson?.divorceDate ? new Date(initialData.secondPerson.divorceDate).toISOString().split('T')[0] : '',
+    divorceDate: initialData?.secondPerson?.divorceDate || '',
     newName: initialData?.secondPerson?.newName || '',
   },
 });
 
-const createSubmissionData = (formData: DeclarationFormData): FormData => {
-  const submissionData = new FormData();
-  const flattenFormData = (obj: Record<string, unknown>, prefix = '') => {
-    Object.entries(obj).forEach(([key, value]) => {
-      const fullKey = prefix ? `${prefix}.${key}` : key;
-      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-        flattenFormData(value as Record<string, unknown>, fullKey);
-      } else if (value !== undefined && value !== null && value !== '') {
-        submissionData.append(fullKey, String(value));
-      }
-    });
+type FormInputType = {
+  date: string;
+  city: string;
+  state: string;
+  unionStartDate: string;
+  propertyRegime: 'COMUNHAO_PARCIAL' | 'SEPARACAO_TOTAL' | 'PARTICIPACAO_FINAL' | 'COMUNHAO_UNIVERSAL';
+  registrarName: string;
+  stamp?: string;
+  pactDate?: string;
+  pactOffice?: string;
+  pactBook?: string;
+  pactPage?: string;
+  pactTerm?: string;
+  firstPerson: {
+    name: string;
+    nationality: string;
+    civilStatus: string;
+    birthDate: string;
+    birthPlaceState: string;
+    birthPlaceCity: string;
+    profession: string;
+    rg: string;
+    taxpayerId: string;
+    address: string;
+    email: string;
+    phone: string;
+    fatherName: string;
+    motherName: string;
+    registryOffice: string;
+    registryBook: string;
+    registryPage: string;
+    registryTerm: string;
+    divorceDate?: string;
+    newName?: string;
   };
-  flattenFormData(formData);
-  return submissionData;
+  secondPerson: {
+    name: string;
+    nationality: string;
+    civilStatus: string;
+    birthDate: string;
+    birthPlaceState: string;
+    birthPlaceCity: string;
+    profession: string;
+    rg: string;
+    taxpayerId: string;
+    address: string;
+    email: string;
+    phone: string;
+    fatherName: string;
+    motherName: string;
+    registryOffice: string;
+    registryBook: string;
+    registryPage: string;
+    registryTerm: string;
+    divorceDate?: string;
+    newName?: string;
+  };
 };
 
-const handleFormSubmission = async (formData: DeclarationFormData, declarationId?: string) => {
-  const submissionData = createSubmissionData(formData);
-  return declarationId
-    ? await updateDeclarationAction(declarationId, submissionData)
-    : await createDeclarationAction(submissionData);
+const convertToFormData = (data: FormInputType): FormData => {
+  const formData = new FormData();
+  formData.append('date', data.date);
+  formData.append('city', data.city);
+  formData.append('state', data.state);
+  formData.append('unionStartDate', data.unionStartDate);
+  formData.append('propertyRegime', data.propertyRegime);
+  formData.append('registrarName', data.registrarName);
+  if (data.stamp) formData.append('stamp', data.stamp);
+  if (data.pactDate) formData.append('pactDate', data.pactDate);
+  if (data.pactOffice) formData.append('pactOffice', data.pactOffice);
+  if (data.pactBook) formData.append('pactBook', data.pactBook);
+  if (data.pactPage) formData.append('pactPage', data.pactPage);
+  if (data.pactTerm) formData.append('pactTerm', data.pactTerm);
+  Object.entries(data.firstPerson).forEach(([key, value]) => {
+    if (value) {
+      formData.append(`firstPerson${key.charAt(0).toUpperCase() + key.slice(1)}`, value);
+    }
+  });
+  Object.entries(data.secondPerson).forEach(([key, value]) => {
+    if (value) {
+      formData.append(`secondPerson${key.charAt(0).toUpperCase() + key.slice(1)}`, value);
+    }
+  });
+  return formData;
 };
+
+const handleSubmission = async (data: FormInputType, declarationId?: string) => 
+  declarationId
+    ? await updateDeclarationAction(declarationId, convertToFormData(data))
+    : await createDeclarationAction(convertToFormData(data));
 
 const downloadPdf = (pdfBase64: string, filename: string) => {
   const byteCharacters = atob(pdfBase64);
@@ -231,8 +251,8 @@ const showSubmissionResult = (result: any, declarationId?: string, onSuccess?: (
       ? 'Declaração atualizada com sucesso!'
       : 'Declaração criada com sucesso!';
     toast.success(message);
-    if (result.pdfContent && result.filename) {
-      downloadPdf(result.pdfContent, result.filename);
+    if (result.data?.pdfContent && result.data?.filename) {
+      downloadPdf(result.data.pdfContent, result.data.filename);
       toast.success('PDF baixado automaticamente!');
     }
     onSuccess?.();
@@ -547,7 +567,7 @@ export const DeclarationForm = ({ declarationId, initialData, onSuccess }: Decla
   const [isSubmitting, startTransition] = useTransition();
   const [formError, setFormError] = useState<string | null>(null);
   const form = useForm<DeclarationFormData>({
-    resolver: zodResolver(declarationSchema),
+    resolver: zodResolver(declarationFormSchema),
     defaultValues: getFormDefaults(initialData)
   });
   useEffect(() => {
@@ -559,7 +579,7 @@ export const DeclarationForm = ({ declarationId, initialData, onSuccess }: Decla
     startTransition(async () => {
       setFormError(null);
       try {
-        const result = await handleFormSubmission(formData, declarationId);
+        const result = await handleSubmission(formData, declarationId);
         const error = showSubmissionResult(result, declarationId, onSuccess);
         setFormError(error);
       } catch (error) {

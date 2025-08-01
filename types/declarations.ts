@@ -1,8 +1,25 @@
-export interface PersonData {
+import { PrismaClient } from '@prisma/client';
+
+export type PrismaTransaction = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
+
+export type PropertyRegime = 
+  | 'COMUNHAO_PARCIAL' 
+  | 'SEPARACAO_TOTAL' 
+  | 'PARTICIPACAO_FINAL' 
+  | 'COMUNHAO_UNIVERSAL';
+
+export interface ActionResult<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  pdfContent?: string;
+  filename?: string;
+}
+
+export interface PersonInput {
   name: string;
   nationality: string;
   civilStatus: string;
-  typeRegistry: string;
   birthDate: string;
   birthPlaceState: string;
   birthPlaceCity: string;
@@ -18,71 +35,24 @@ export interface PersonData {
   registryBook: string;
   registryPage: string;
   registryTerm: string;
+  typeRegistry?: string;
   divorceDate?: string;
   newName?: string;
 }
 
-export interface DeclarationData {
-  id: string;
-  date: string;
-  city: string;
-  state: string;
-  unionStartDate: string;
-  propertyRegime: PropertyRegime;
-  registrarName: string;
-  stamp?: string;
-  pactDate?: string;
-  pactOffice?: string;
-  pactBook?: string;
-  pactPage?: string;
-  pactTerm?: string;
-  firstPerson: PersonData;
-  secondPerson: PersonData;
-  createdAt: string;
-  updatedAt: string;
-  history?: DeclarationHistoryEntry[];
+export interface PdfPersonData extends PersonInput {
+  cpf: string;
+  birthPlace: string;
+  birthPlaceState: string;
+  birthPlaceCity: string;
+  taxpayerId: string;
+  typeRegistry: string;
 }
 
-export interface SearchDeclarationResult {
-  id: string;
-  unionStartDate: string;
-  firstPerson: PersonData;
-  secondPerson: PersonData;
+export interface SearchFormData {
+  protocolNumber: string;
+  taxpayerId: string;
 }
-
-export interface DeclarationHistoryEntry {
-  id: string;
-  type: 'UPDATE' | 'SECOND_COPY';
-  description: string;
-  averbation?: string;
-  updatedBy: string;
-  updatedAt: string;
-}
-
-export interface ClientData {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  declaration?: {
-    unionStartDate: string;
-    firstPerson: PersonData;
-    secondPerson: PersonData;
-  };
-}
-
-export interface SearchResult<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
-export type PropertyRegime = 
-  | 'COMUNHAO_PARCIAL' 
-  | 'SEPARACAO_TOTAL' 
-  | 'PARTICIPACAO_FINAL' 
-  | 'COMUNHAO_UNIVERSAL';
 
 export interface RegistrationSearchParams {
   protocolNumber?: string;
@@ -91,15 +61,102 @@ export interface RegistrationSearchParams {
   bookNumber?: string;
   pageNumber?: number;
   termNumber?: number;
+  taxpayerId?: string;
 }
 
-export interface RegistrationData {
+export interface DeclarationInput {
+  date: string;
+  city: string;
+  state: string;
+  stamp: string;
+  firstPerson: PersonInput;
+  secondPerson: PersonInput;
+  unionStartDate: string;
+  propertyRegime: PropertyRegime;
+  registrarName?: string;
+  pactDate?: string;
+  pactOffice?: string;
+  pactBook?: string;
+  pactPage?: string;
+  pactTerm?: string;
+}
+
+export interface PdfData {
+  date: string;
+  originalDate?: string;
+  city: string;
+  state: string;
+  stamp: string;
+  firstPerson: PdfPersonData;
+  secondPerson: PdfPersonData;
+  unionStartDate: string;
+  propertyRegime: PropertyRegime;
+  registrarName?: string;
+  pactDate?: string;
+  pactOffice?: string;
+  pactBook?: string;
+  pactPage?: string;
+  pactTerm?: string;
+  averbations?: { text: string; date: string; updatedBy: string }[];
+  isUpdate?: boolean;
+}
+
+export interface UpdateData {
   id: string;
-  protocolNumber: string;
+  data: Partial<DeclarationInput>;
+}
+
+export interface SearchFilters {
+  protocolNumber?: string;
+  taxpayerId?: string;
+  firstPersonName?: string;
+  secondPersonName?: string;
+}
+
+export type HistoryEntryType = 'UPDATE' | 'SECOND_COPY' | 'AVERBATION';
+
+export interface DeclarationHistoryEntry {
+  id: string;
+  type: HistoryEntryType;
+  description: string;
+  averbation?: string;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface DeclarationData {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  declarationDate: string;
+  date: string;
+  city: string;
+  state: string;
+  unionStartDate: string;
+  propertyRegime: string;
+  firstPerson: PersonInput;
+  secondPerson: PersonInput;
+  history?: DeclarationHistoryEntry[];
+  pactDate?: string;
+  registryInfo?: {
+    registryOffice: string;
+    typeRegistry: string;
+    registrarName: string;
+  };
+  prenuptial?: {
+    pactDate?: string;
+    pactOffice?: string;
+    pactBook?: string;
+    pactPage?: string;
+    pactTerm?: string;
+  };
+}
+
+export interface SearchDeclarationResult {
+  id: string;
   firstPersonName: string;
   secondPersonName: string;
-  unionDate: string;
-  bookNumber: string;
-  pageNumber: number;
-  termNumber: number;
+  declarationDate: string;
+  city: string;
+  state: string;
 }

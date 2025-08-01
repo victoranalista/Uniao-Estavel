@@ -1,9 +1,23 @@
 "use client";
 
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
-import { Home, Users, LogOut } from 'lucide-react';
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Home, LogOut, Settings, User, FileText, Plus, RefreshCw } from 'lucide-react';
 import { useCallback } from 'react';
+import { NavItem } from "../settings/nav-item";
+import { useSession } from "@/lib/hooks/use-session";
+import { handleSignOut } from "../login/actions";
 
 interface NavigationItem {
   id: string;
@@ -20,37 +34,110 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     path: '/dashboard'
   },
   {
-    id: 'users',
-    label: 'Usuários',
-    icon: Users,
-    path: '/dashboard/users'
+    id: 'new-registration',
+    label: 'Novo Registro',
+    icon: Plus,
+    path: '/dashboard/new-registration'
+  },
+  {
+    id: 'documents',
+    label: 'Documentos',
+    icon: FileText,
+    path: '/dashboard/documents'
+  },
+  {
+    id: 'update',
+    label: 'Atualização',
+    icon: RefreshCw,
+    path: '/dashboard/update'
+  },
+  {
+    id: 'settings',
+    label: 'Configurações',
+    icon: Settings,
+    path: '/settings'
   }
 ];
 
-const NavigationButton = ({ 
-  item, 
-  isActive, 
-  onClick 
-}: {
-  item: NavigationItem;
-  isActive: boolean;
-  onClick: () => void;
-}) => {
-  const IconComponent = item.icon;
+const SidebarNavigation = () => (
+  <TooltipProvider>
+    <aside className="flex h-full w-14 flex-col border-r bg-background">
+      <div className="flex h-14 items-center justify-center border-b px-2">
+        <img 
+          src="/logo.png" 
+          alt="Cartório Colorado" 
+          className="h-8 w-8"
+        />
+      </div>
+      
+      <nav className="flex flex-1 flex-col items-center gap-2 p-2">
+        {NAVIGATION_ITEMS.map((item) => (
+          <NavItem
+            key={item.id}
+            href={item.path}
+            label={item.label}
+            variant="ghost"
+          >
+            <item.icon className="h-5 w-5" />
+          </NavItem>
+        ))}
+      </nav>
+    </aside>
+  </TooltipProvider>
+);
+
+const TopBar = ({ onLogout }: { onLogout: () => void }) => {
+  const { user, isLoading } = useSession();
   
+  const getUserInitials = (name?: string | null) => {
+    if (!name) return 'U';
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
-    <Button
-      variant="ghost"
-      onClick={onClick}
-      className={
-        isActive 
-          ? 'hover:text-black text-white' 
-          : 'text-white hover:text-gray-300'
-      }
-    >
-      <IconComponent className="w-5 h-5 mr-2" />
-      {item.label}
-    </Button>
+    <header className="flex h-14 items-center justify-between bg-background px-4">
+      <h1 className="text-lg font-semibold"></h1>
+      
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={user?.image || "/placeholder-user.jpg"} alt={user?.name || "Usuário"} />
+              <AvatarFallback>
+                {isLoading ? <User className="h-4 w-4" /> : getUserInitials(user?.name)}
+              </AvatarFallback>
+            </Avatar>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56" align="end" forceMount>
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none">
+                {user?.name || 'Usuário'}
+              </p>
+              <p className="text-xs leading-none text-muted-foreground">
+                {user?.email || 'email@cartorio.com'}
+              </p>
+            </div>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem>
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Configurações</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onLogout} className="text-destructive">
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Sair</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </header>
   );
 };
 
@@ -60,46 +147,28 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
 
-  const handleNavigation = useCallback((path: string) => {
-    router.push(path);
-  }, [router]);
-
-  const handleLogout = useCallback(() => {
-    router.push('/login');
+  const handleLogout = useCallback(async () => {
+    try {
+      await handleSignOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      router.push('/login');
+    }
   }, [router]);
 
   return (
-    <div>
-      <nav className="bg-black shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-4">
-              {NAVIGATION_ITEMS.map((item) => (
-                <NavigationButton
-                  key={item.id}
-                  item={item}
-                  isActive={pathname === item.path}
-                  onClick={() => handleNavigation(item.path)}
-                />
-              ))}
-            </div>
-
-            <div>
-              <Button
-                variant="ghost"
-                onClick={handleLogout}
-                className="text-white hover:text-gray-300"
-              >
-                <LogOut className="w-5 h-5 mr-2" />
-                Sair
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
-      {children}
+    <div className="flex h-screen bg-background">
+      <SidebarNavigation />
+      
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <TopBar onLogout={handleLogout} />
+        
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

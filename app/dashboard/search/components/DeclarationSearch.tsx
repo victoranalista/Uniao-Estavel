@@ -3,14 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { toast } from "sonner";
-import { searchDeclarationsAction } from "@/app/actions/declarations";
-import { SearchDeclarationResult } from "@/types/declarations";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { SearchDeclarationResult } from '@/types/declarations';
+import { searchUpdateCandidatesAction } from '@/app/dashboard/update/actions/actions';
 
 interface DeclarationSearchProps {
   onDeclarationSelect: (declaration: SearchDeclarationResult) => void;
@@ -20,26 +20,28 @@ const MINIMUM_SEARCH_LENGTH = 2;
 const DEBOUNCE_DELAY = 300;
 
 const formatDeclarationDisplay = (declaration: SearchDeclarationResult) => {
-  const firstPersonName = declaration.firstPerson.name;
-  const secondPersonName = declaration.secondPerson.name;
-  const unionDate = new Date(declaration.unionStartDate).toLocaleDateString('pt-BR');
+  const unionDate = new Date(declaration.declarationDate).toLocaleDateString('pt-BR');
   return {
-    title: `${firstPersonName} e ${secondPersonName}`,
-    subtitle: `União iniciada em ${unionDate}`
+    title: `${declaration.firstPersonName} e ${declaration.secondPersonName}`,
+    subtitle: `Declaração de ${unionDate} - ${declaration.city}, ${declaration.state}`
   };
 };
 
-const fetchDeclarations = async (searchTerm: string) => {
-  if (!searchTerm || searchTerm.length < MINIMUM_SEARCH_LENGTH) {
-    return [];
-  }
-  const result = await searchDeclarationsAction(searchTerm);
+const fetchDeclarations = async (searchTerm: string): Promise<SearchDeclarationResult[]> => {
+  if (!searchTerm || searchTerm.length < MINIMUM_SEARCH_LENGTH) return [];
+  const result = await searchUpdateCandidatesAction(searchTerm);
   if (result.success && result.data) {
-    return result.data as SearchDeclarationResult[];
-  } else {
-    toast.error(result.error || 'Erro ao buscar declarações');
-    return [];
+    return result.data.map(declaration => ({
+      id: declaration.id,
+      firstPersonName: declaration.firstPerson.name,
+      secondPersonName: declaration.secondPerson.name,
+      declarationDate: declaration.declarationDate,
+      city: declaration.city,
+      state: declaration.state
+    }));
   }
+  toast.error(result.error || 'Erro ao buscar declarações');
+  return [];
 };
 
 const renderDeclarationItem = (
@@ -94,7 +96,7 @@ const renderSearchResults = (
   );
 };
 
-export function DeclarationSearch({ onDeclarationSelect }: DeclarationSearchProps) {
+export const DeclarationSearch = ({ onDeclarationSelect }: DeclarationSearchProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [declarationResults, setDeclarationResults] = useState<SearchDeclarationResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -135,4 +137,4 @@ export function DeclarationSearch({ onDeclarationSelect }: DeclarationSearchProp
       )}
     </div>
   );
-}
+};

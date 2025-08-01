@@ -98,7 +98,7 @@ export default function CreateUserForm() {
         name: 'taxpayerId',
         label: 'taxpayerId',
         type: 'text',
-        placeholder: 'Digite o taxpayerId'
+        placeholder: 'Digite o CPF'
       });
     }
     return baseFields;
