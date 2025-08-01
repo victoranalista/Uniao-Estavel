@@ -100,15 +100,22 @@ export const generateDeclarationPDFAction = async (declarationId: string): Promi
     const pdfData = transformDeclarationToPdfData(declaration);
     const result = await generatePdfAction(pdfData);
     
-    if (!result.success) return { success: false, error: 'Erro ao gerar PDF' };
+    if (!result.success) {
+      const errorMessage = 'error' in result ? result.error : 'Erro ao gerar PDF';
+      return { success: false, error: errorMessage };
+    }
     
-    return {
-      success: true,
-      data: {
-        pdfContent: result.pdfContent!,
-        filename: result.filename!
-      }
-    };
+    if ('pdfContent' in result && 'filename' in result) {
+      return {
+        success: true,
+        data: {
+          pdfContent: result.pdfContent,
+          filename: result.filename
+        }
+      };
+    }
+    
+    return { success: false, error: 'Resposta inválida do gerador de PDF' };
   } catch (error) {
     return { success: false, error: 'Erro ao gerar PDF da declaração' };
   }

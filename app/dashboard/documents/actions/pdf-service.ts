@@ -62,21 +62,25 @@ type PdfData = {
 };
 
 export const generateDeclarationPdf = async (pdfData: PdfData): Promise<ActionResult<{ pdfContent: string; filename: string }>> => {
-  if (!pdfData.registrarName) {
+  if (!pdfData.registrarName) 
     return { success: false, error: 'Nome do registrador é obrigatório.' };
-  }
   
   const result = await generatePdfAction(pdfData);
   
   if (!result.success) {
-    return { success: false, error: result.error || 'Erro ao gerar PDF' };
+    const errorMessage = 'error' in result ? result.error : 'Erro ao gerar PDF';
+    return { success: false, error: errorMessage };
   }
   
-  return {
-    success: true,
-    data: {
-      pdfContent: result.pdfContent!,
-      filename: result.filename!
-    }
-  };
+  if ('pdfContent' in result && 'filename' in result) {
+    return {
+      success: true,
+      data: {
+        pdfContent: result.pdfContent,
+        filename: result.filename
+      }
+    };
+  }
+  
+  return { success: false, error: 'Resposta inválida do gerador de PDF' };
 };

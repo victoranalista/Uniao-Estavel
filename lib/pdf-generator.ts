@@ -401,11 +401,8 @@ const buildCompletePdf = async (
   const declarationText = buildDeclarationText(validatedData, term, finalSeal);
   const formattedParts = parseFormattedText(declarationText);
   const textLines = wrapFormattedText(formattedParts, maxWidth, 11, fonts.helveticaFont, fonts.helveticaBold);
-  
   const { finalPage, finalY } = drawTextContent(currentPage, textLines, config, fonts, pdfDoc, backgroundImage, book, term.toString());
-  
   drawSignatures(finalPage, validatedData, registrarFunction, fonts.helveticaFont, fonts.helveticaBold, finalY);
-  
   return await finalizePdf(pdfDoc, book, term);
 };
 
@@ -427,19 +424,15 @@ const drawTextContent = (
 ) => {
   let currentY = page.getSize().height - 155;
   let currentPage = page;
-  
   for (let i = 0; i < textLines.length; i++) {
     const line = textLines[i];
     const isLastLine = i === textLines.length - 1;
-    
     if (shouldCreateNewPage(currentY, config)) {
       currentPage = createPageWithBackground(pdfDoc, backgroundImage);
       currentY = drawHeader(currentPage, book, term, fonts.helveticaBold, false);
     }
-    
     currentY = drawSingleLine(currentPage, line, currentY, config, fonts, isLastLine);
   }
-  
   return { finalPage: currentPage, finalY: currentY };
 };
 

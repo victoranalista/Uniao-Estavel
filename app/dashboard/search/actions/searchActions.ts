@@ -276,12 +276,12 @@ export const generateSecondCopyAction = async (declarationId: string): Promise<A
     if (!declaration) return { success: false, error: 'Declaração não encontrada' };
     const pdfData = transformDeclarationToPdfData(declaration);
     const result = await generatePdfAction(pdfData);
-    if (!result.success) return { success: false, error: 'Erro ao gerar PDF' };
+    if (!result.success || !('pdfContent' in result)) return { success: false, error: 'Erro ao gerar PDF' };
     const filename = `segunda-via-declaracao-${declaration.id}.pdf`;
     return {
       success: true,
       data: {
-        pdfContent: result.pdfContent ?? '',
+        pdfContent: result.pdfContent,
         filename
       }
     };
