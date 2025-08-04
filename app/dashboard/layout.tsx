@@ -1,8 +1,6 @@
 "use client";
-
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   DropdownMenu, 
@@ -162,10 +160,10 @@ export default function DashboardLayout({
     <div className="flex h-screen bg-background">
       <SidebarNavigation />
       
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col">
         <TopBar onLogout={handleLogout} />
         
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1">
           {children}
         </main>
       </div>

@@ -7,107 +7,110 @@ import bcrypt from 'bcryptjs';
 import { requireSession } from '@/lib/requireSession';
 import { UpdateUserDataInput } from '../../types';
 
-export async function updateUserDataAction(data: UpdateUserDataInput) {
+export const updateUserDataAction = async (data: UpdateUserDataInput) => {
   try {
     await requireSession([Role.ADMIN]);
     const validBody = await validationSchema.parse(data);
-    if (!validBody) return { success: false, message: 'Invalid data type' };
-    if (
-      validBody.role !== Role.ADMIN &&
-      typeof validBody.password === 'string' &&
-      validBody.password.trim() !== ''
-    )
-      return {
-        success: false,
-        message: 'Only ADMIN users can set or update a password'
-      };
+    if (!validBody) return { success: false, message: 'Dados inválidos' };
+    
+    if (validBody.role !== Role.ADMIN && typeof validBody.password === 'string' && validBody.password.trim() !== '') {
+      return { success: false, message: 'Apenas usuários ADMIN podem definir senhas' };
+    }
+    
     const { id: userHistoryId } = validBody;
-    try {
-      await prisma.$transaction(async (tx) => {
-        const check = await checker(tx, userHistoryId);
-        if (!check) throw new Error('User not found');
-        const isPasswordModified =
-          validBody.role === Role.ADMIN &&
-          typeof validBody.password === 'string' &&
-          validBody.password.trim() !== '' &&
-          !(await bcrypt.compare(validBody.password, check.password ?? ''));
-        let finalPassword: string | null | undefined = undefined;
-        if (validBody.role === Role.ADMIN)
-          if (isPasswordModified)
-            finalPassword = await bcrypt.hash(validBody.password!, 12);
-          else finalPassword = check.password ?? undefined;
-        else finalPassword = null;
-        const dataModified =
-          check.name !== validBody.name ||
-          check.email !== validBody.email ||
-          check.role !== validBody.role ||
-          check.status !== validBody.status ||
-          isPasswordModified ||
-          (validBody.role !== Role.ADMIN && check.password !== null);
-        if (!dataModified) throw new Error('No data was modified');
-        const existingUserHistory = await tx.userHistory.findUnique({
-          where: { id: userHistoryId }
-        });
-        if (!existingUserHistory)
-          throw new Error('UserHistory record not found');
-        const existingUser = await tx.user.findUnique({
-          where: { id: check.userId }
-        });
-        if (!existingUser) throw new Error('User record not found');
-        await Promise.all([
-          tx.userHistory.update({
-            where: { id: userHistoryId },
-            data: {
-              name: validBody.name,
-              email: validBody.email,
-              role: validBody.role,
-              status: validBody.status,
-              password: finalPassword
-            }
-          }),
-          tx.user.update({
-            where: { id: check.userId },
-            data: {
-              status: validBody.status
-            }
-          })
-        ]);
-      });
-      return { success: true, message: 'User updated successfully' };
-    } catch (error: unknown) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'message' in error &&
-        typeof (error as { message: unknown }).message === 'string'
-      ) {
-        const msg = (error as { message: string }).message;
-        if (
-          msg === 'No data was modified' ||
-          msg === 'User not found' ||
-          msg === 'UserHistory record not found' ||
-          msg === 'User record not found'
-        ) {
-          return { success: false, message: msg };
-        }
-        console.error('ERROR: Error updating user:', error);
-        return { success: false, message: 'Error updating user' };
-      }
-      console.error('ERROR: Error updating user:', error);
-      return { success: false, message: 'Error updating user' };
-    }
+    
+    return await prisma.$transaction(async (tx) => {
+      const check = await checker(tx, userHistoryId);
+      if (!check) throw new Error('Usuário não encontrado');
+      
+      const currentUserHistory = await getCurrentUserHistory(tx, userHistoryId);
+      if (!currentUserHistory) throw new Error('Histórico do usuário não encontrado');
+      
+      const isPasswordModified = await checkPasswordModification(validBody, currentUserHistory.password);
+      const finalPassword = await determineFinalPassword(validBody, isPasswordModified, currentUserHistory.password);
+      
+      const hasDataChanged = checkDataChanges(check, validBody, isPasswordModified);
+      if (!hasDataChanged) throw new Error('Nenhum dado foi modificado');
+      
+      await updateUserRecords(tx, userHistoryId, check.userId, validBody, finalPassword);
+      
+      return { success: true, message: 'Usuário atualizado com sucesso' };
+    });
   } catch (error: unknown) {
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'message' in error &&
-      typeof (error as { message: unknown }).message === 'string'
-    ) {
-      return {
-        success: false,
-        message: (error as { message: string }).message
-      };
-    }
-    return { success: false, message: 'Invalid data type' };
+    return handleActionError(error);
   }
-}
+};
+
+const getCurrentUserHistory = async (tx: any, userHistoryId: number) => {
+  return await tx.userHistory.findUnique({
+    where: { id: userHistoryId },
+    select: { password: true }
+  });
+};
+
+const checkPasswordModification = async (validBody: any, currentPassword: string | null) => {
+  if (validBody.role !== Role.ADMIN || !validBody.password || validBody.password.trim() === '') {
+    return false;
+  }
+  
+  if (!currentPassword) return true;
+  
+  return !(await bcrypt.compare(validBody.password, currentPassword));
+};
+
+const determineFinalPassword = async (validBody: any, isPasswordModified: boolean, currentPassword: string | null) => {
+  if (validBody.role !== Role.ADMIN) return null;
+  
+  if (isPasswordModified && validBody.password) {
+    return await bcrypt.hash(validBody.password, 12);
+  }
+  
+  return currentPassword;
+};
+
+const checkDataChanges = (check: any, validBody: any, isPasswordModified: boolean) => {
+  return (
+    check.name !== validBody.name ||
+    check.email !== validBody.email ||
+    check.role !== validBody.role ||
+    check.status !== validBody.status ||
+    isPasswordModified ||
+    (validBody.role !== Role.ADMIN)
+  );
+};
+
+const updateUserRecords = async (tx: any, userHistoryId: number, userId: number, validBody: any, finalPassword: string | null) => {
+  await Promise.all([
+    tx.userHistory.update({
+      where: { id: userHistoryId },
+      data: {
+        name: validBody.name,
+        email: validBody.email,
+        role: validBody.role,
+        status: validBody.status,
+        password: finalPassword
+      }
+    }),
+    tx.user.update({
+      where: { id: userId },
+      data: { status: validBody.status }
+    })
+  ]);
+};
+
+const handleActionError = (error: unknown) => {
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message: string }).message;
+    const knownErrors = [
+      'Nenhum dado foi modificado',
+      'Usuário não encontrado', 
+      'Histórico do usuário não encontrado'
+    ];
+    
+    if (knownErrors.includes(message)) {
+      return { success: false, message };
+    }
+  }
+  
+  return { success: false, message: 'Erro ao atualizar usuário' };
+};

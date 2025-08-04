@@ -1,13 +1,28 @@
 import { Prisma } from '@prisma/client';
-import { ICheckResult } from './types';
+
+export interface UserVersionCheckResult {
+  id: number;
+  version: number;
+  userId: number;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+}
 
 const checker = async (
   prisma: Prisma.TransactionClient,
   userHistoryId: number
-): Promise<ICheckResult | false> => {
+): Promise<UserVersionCheckResult | false> => {
   const userHistoryData = await prisma.userHistory.findFirst({
     where: { id: userHistoryId },
-    include: {
+    select: {
+      id: true,
+      version: true,
+      name: true,
+      email: true,
+      role: true,
+      status: true,
       user: {
         select: {
           id: true,
@@ -20,13 +35,11 @@ const checker = async (
       }
     }
   });
-  if (
-    !userHistoryData ||
-    !userHistoryData.user ||
-    !userHistoryData.user.versions[0] ||
-    userHistoryData.user.versions[0].id !== userHistoryId
-  )
+  
+  if (!userHistoryData?.user?.versions[0] || userHistoryData.user.versions[0].id !== userHistoryId) {
     return false;
+  }
+  
   return {
     id: userHistoryData.id,
     version: userHistoryData.version,
@@ -34,8 +47,7 @@ const checker = async (
     name: userHistoryData.name,
     email: userHistoryData.email,
     role: userHistoryData.role,
-    status: userHistoryData.status,
-    password: userHistoryData.password
+    status: userHistoryData.status
   };
 };
 

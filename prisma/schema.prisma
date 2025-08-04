@@ -188,6 +188,8 @@ model Declaration {
   state            String
   unionStartDate   DateTime
   propertyRegime   String
+  termNumber       String?
+  bookNumber       String?
   registryInfo     DeclarationRegistry?      
   prenuptial       PrenuptialAgreement?     
   history          DeclarationHistory[]      

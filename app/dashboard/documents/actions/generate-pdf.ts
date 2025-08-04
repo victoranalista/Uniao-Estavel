@@ -1,122 +1,119 @@
 'use server';
-
-import { requireSession } from '@/lib/requireSession';
-import { Role } from '@prisma/client';
-import { generatePdfAction } from '@/lib/pdf-generator';
 import { prisma } from '@/lib/prisma';
-import type { ActionResult } from '@/types/declarations';
+import { generateSecondCopyPdfAction } from '@/lib/pdf-generator';
+import { PdfGenerationResult } from '../types';
 
-const formatDateForPdf = (date: Date | string): string => {
+export const generateSecondCopyAction = async (declarationId: string): Promise<PdfGenerationResult> => {
+  try {
+    const declaration = await fetchDeclarationWithBookInfo(declarationId);
+    if (!declaration) return { success: false, error: 'Declaração não encontrada' };
+    if (!declaration.termNumber || !declaration.bookNumber) return { success: false, error: 'Declaração não possui termo registrado' };
+
+    const mappedData = mapDeclarationToPdfData(declaration);
+    const pdfResult = await generateSecondCopyPdfAction(mappedData, declaration.bookNumber, declaration.termNumber);
+    
+    if (!pdfResult.success) {
+      return { success: false, error: 'error' in pdfResult ? pdfResult.error : 'Erro ao gerar segunda via do PDF' };
+    }
+    
+    if ('pdfContent' in pdfResult && 'filename' in pdfResult) {
+      return {
+        success: true,
+        data: {
+          pdfContent: pdfResult.pdfContent,
+          filename: pdfResult.filename
+        }
+      };
+    }
+    
+    return { success: false, error: 'Erro ao processar PDF gerado' };
+  } catch (error) {
+    console.error('Generate Second Copy Error:', error);
+    return { success: false, error: 'Erro interno do servidor' };
+  }
+};
+
+const fetchDeclarationWithBookInfo = async (id: string) => {
+  return await prisma.declaration.findFirst({
+    where: { id, deletedAt: null },
+    include: {
+      registryInfo: true,
+      participants: {
+        include: {
+          person: {
+            include: {
+              identity: true,
+              civilStatuses: true,
+              addresses: true,
+              contact: true,
+              documents: true,
+              family: true,
+              professional: true,
+              registry: true
+            }
+          }
+        }
+      }
+    }
+  });
+};
+
+const mapDeclarationToPdfData = (declaration: any) => {
+  const [firstParticipant, secondParticipant] = declaration.participants;
+  
+  return {
+    city: declaration.city,
+    state: declaration.state,
+    unionStartDate: formatDateForPdf(declaration.unionStartDate),
+    propertyRegime: declaration.propertyRegime,
+    registrarName: declaration.registryInfo?.registrarName || '',
+    firstPerson: mapPersonToPdfFormat(firstParticipant.person),
+    secondPerson: mapPersonToPdfFormat(secondParticipant.person)
+  };
+};
+
+const mapPersonToPdfFormat = (person: any) => {
+  const address = person.addresses?.[0];
+  const birthPlace = person.identity?.birthPlace || (address ? `${address.city}, ${address.state}` : '');
+  const fullAddress = buildFullAddress(address);
+  
+  return {
+    name: person.identity?.fullName || '',
+    taxpayerId: person.identity?.taxId || '',
+    nationality: person.identity?.nationality || '',
+    civilStatus: person.civilStatuses?.[0]?.status || '',
+    birthDate: formatDateForPdf(person.identity?.birthDate),
+    birthPlace,
+    profession: person.professional?.profession || '',
+    rg: person.documents?.rg || '',
+    address: fullAddress,
+    email: person.contact?.email || '',
+    phone: person.contact?.phone || '',
+    fatherName: person.family?.fatherName || '',
+    motherName: person.family?.motherName || '',
+    registryOffice: person.registry?.registryOffice || '',
+    registryBook: person.registry?.registryBook || '',
+    registryPage: person.registry?.registryPage || '',
+    registryTerm: person.registry?.registryTerm || '',
+    typeRegistry: 'NASCIMENTO'
+  };
+};
+
+const formatDateForPdf = (date: Date | string | null) => {
   if (!date) return '';
   const dateObj = date instanceof Date ? date : new Date(date);
   return dateObj.toISOString().split('T')[0];
 };
 
-const transformDeclarationToPdfData = (declaration: any) => ({
-  city: declaration.city,
-  state: declaration.state,
-  stamp: 'N/A',
-  firstPerson: {
-    name: declaration.participants[0]?.person?.identity?.fullName || '',
-    cpf: declaration.participants[0]?.person?.identity?.taxId || '',
-    nationality: declaration.participants[0]?.person?.identity?.nationality || '',
-    civilStatus: declaration.participants[0]?.person?.civilStatuses?.[0]?.status || '',
-    birthDate: formatDateForPdf(declaration.participants[0]?.person?.identity?.birthDate || ''),
-    birthPlace: declaration.participants[0]?.person?.identity?.birthPlace || '',
-    profession: declaration.participants[0]?.person?.professional?.profession || '',
-    rg: declaration.participants[0]?.person?.documents?.rg || '',
-    address: declaration.participants[0]?.person?.addresses?.[0]?.street || '',
-    email: declaration.participants[0]?.person?.contact?.email || '',
-    phone: declaration.participants[0]?.person?.contact?.phone || '',
-    fatherName: declaration.participants[0]?.person?.family?.fatherName || '',
-    motherName: declaration.participants[0]?.person?.family?.motherName || '',
-    registryOffice: declaration.participants[0]?.person?.registry?.registryOffice || '',
-    registryBook: declaration.participants[0]?.person?.registry?.registryBook || '',
-    registryPage: declaration.participants[0]?.person?.registry?.registryPage || '',
-    registryTerm: declaration.participants[0]?.person?.registry?.registryTerm || '',
-    typeRegistry: 'NASCIMENTO',
-  },
-  secondPerson: {
-    name: declaration.participants[1]?.person?.identity?.fullName || '',
-    cpf: declaration.participants[1]?.person?.identity?.taxId || '',
-    nationality: declaration.participants[1]?.person?.identity?.nationality || '',
-    civilStatus: declaration.participants[1]?.person?.civilStatuses?.[0]?.status || '',
-    birthDate: formatDateForPdf(declaration.participants[1]?.person?.identity?.birthDate || ''),
-    birthPlace: declaration.participants[1]?.person?.identity?.birthPlace || '',
-    profession: declaration.participants[1]?.person?.professional?.profession || '',
-    rg: declaration.participants[1]?.person?.documents?.rg || '',
-    address: declaration.participants[1]?.person?.addresses?.[0]?.street || '',
-    email: declaration.participants[1]?.person?.contact?.email || '',
-    phone: declaration.participants[1]?.person?.contact?.phone || '',
-    fatherName: declaration.participants[1]?.person?.family?.fatherName || '',
-    motherName: declaration.participants[1]?.person?.family?.motherName || '',
-    registryOffice: declaration.participants[1]?.person?.registry?.registryOffice || '',
-    registryBook: declaration.participants[1]?.person?.registry?.registryBook || '',
-    registryPage: declaration.participants[1]?.person?.registry?.registryPage || '',
-    registryTerm: declaration.participants[1]?.person?.registry?.registryTerm || '',
-    typeRegistry: 'NASCIMENTO',
-  },
-  unionStartDate: formatDateForPdf(declaration.unionStartDate),
-  propertyRegime: declaration.propertyRegime,
-  registrarName: declaration.registryInfo?.registrarName || 'Registrador Padrão',
-  pactDate: declaration.prenuptial?.pactDate ? formatDateForPdf(declaration.prenuptial.pactDate) : undefined,
-  pactOffice: declaration.prenuptial?.pactOffice || undefined,
-  pactBook: declaration.prenuptial?.pactBook || undefined,
-  pactPage: declaration.prenuptial?.pactPage || undefined,
-  pactTerm: declaration.prenuptial?.pactTerm || undefined,
-});
-
-export const generateDeclarationPDFAction = async (declarationId: string): Promise<ActionResult<{ pdfContent: string; filename: string }>> => {
-  try {
-    await requireSession([Role.ADMIN, Role.USER]);
-    if (!declarationId) return { success: false, error: 'ID da declaração é obrigatório' };
-    
-    const declaration = await prisma.declaration.findUnique({
-      where: { id: declarationId },
-      include: {
-        registryInfo: true,
-        prenuptial: true,
-        participants: {
-          include: {
-            person: {
-              include: {
-                identity: true,
-                civilStatuses: true,
-                addresses: true,
-                contact: true,
-                documents: true,
-                family: true,
-                professional: true,
-                registry: true,
-              }
-            }
-          }
-        }
-      }
-    });
-    
-    if (!declaration) return { success: false, error: 'Declaração não encontrada' };
-    
-    const pdfData = transformDeclarationToPdfData(declaration);
-    const result = await generatePdfAction(pdfData);
-    
-    if (!result.success) {
-      const errorMessage = 'error' in result ? result.error : 'Erro ao gerar PDF';
-      return { success: false, error: errorMessage };
-    }
-    
-    if ('pdfContent' in result && 'filename' in result) {
-      return {
-        success: true,
-        data: {
-          pdfContent: result.pdfContent,
-          filename: result.filename
-        }
-      };
-    }
-    
-    return { success: false, error: 'Resposta inválida do gerador de PDF' };
-  } catch (error) {
-    return { success: false, error: 'Erro ao gerar PDF da declaração' };
-  }
+const buildFullAddress = (address: any) => {
+  if (!address) return '';
+  const parts = [
+    address.street,
+    address.number,
+    address.complement,
+    address.neighborhood,
+    address.city,
+    address.state
+  ].filter(Boolean);
+  return parts.join(', ');
 };
