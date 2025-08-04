@@ -1,116 +1,103 @@
 'use server';
-import { Role } from '@prisma/client';
+import { cleanTaxpayerId, isValidTaxpayerId, handleActionError } from '@/lib/validators';
 import { prisma } from '@/lib/prisma';
-import checker from '../../versionChecker';
-import { validationSchema } from '../../edit/[id]/validationSchema';
-import bcrypt from 'bcryptjs';
-import { requireSession } from '@/lib/requireSession';
-import { UpdateUserDataInput } from '../../types';
+import { auth } from '@/lib/auth';
+import { Role, ActivationStatus } from '@prisma/client';
 
-export const updateUserDataAction = async (data: UpdateUserDataInput) => {
-  try {
-    await requireSession([Role.ADMIN]);
-    const validBody = await validationSchema.parse(data);
-    if (!validBody) return { success: false, message: 'Dados inválidos' };
-    
-    if (validBody.role !== Role.ADMIN && typeof validBody.password === 'string' && validBody.password.trim() !== '') {
-      return { success: false, message: 'Apenas usuários ADMIN podem definir senhas' };
-    }
-    
-    const { id: userHistoryId } = validBody;
-    
-    return await prisma.$transaction(async (tx) => {
-      const check = await checker(tx, userHistoryId);
-      if (!check) throw new Error('Usuário não encontrado');
-      
-      const currentUserHistory = await getCurrentUserHistory(tx, userHistoryId);
-      if (!currentUserHistory) throw new Error('Histórico do usuário não encontrado');
-      
-      const isPasswordModified = await checkPasswordModification(validBody, currentUserHistory.password);
-      const finalPassword = await determineFinalPassword(validBody, isPasswordModified, currentUserHistory.password);
-      
-      const hasDataChanged = checkDataChanges(check, validBody, isPasswordModified);
-      if (!hasDataChanged) throw new Error('Nenhum dado foi modificado');
-      
-      await updateUserRecords(tx, userHistoryId, check.userId, validBody, finalPassword);
-      
-      return { success: true, message: 'Usuário atualizado com sucesso' };
-    });
-  } catch (error: unknown) {
-    return handleActionError(error);
-  }
+interface UserData {
+  name: string;
+  email: string;
+  taxpayerId: string;
+  role: Role;
+}
+
+interface ActionResult {
+  success: boolean;
+  message?: string;
+}
+
+const validateUserData = (data: UserData): string | null => {
+  if (!data.name?.trim()) return 'Nome é obrigatório';
+  if (!data.email?.trim()) return 'Email é obrigatório';
+  if (!data.taxpayerId?.trim()) return 'CPF é obrigatório';
+  if (!isValidTaxpayerId(data.taxpayerId)) return 'CPF inválido';
+  return null;
 };
 
-const getCurrentUserHistory = async (tx: any, userHistoryId: number) => {
-  return await tx.userHistory.findUnique({
-    where: { id: userHistoryId },
-    select: { password: true }
+const checkUserAvailability = async (email: string, taxpayerId: string, excludeId: number) => {
+  const cleanId = cleanTaxpayerId(taxpayerId);
+  const [existingEmail, existingTaxpayerId] = await Promise.all([
+    prisma.userHistory.findFirst({
+      where: { 
+        email: email.toLowerCase(),
+        status: ActivationStatus.ACTIVE,
+        archivedAt: null,
+        userId: { not: excludeId }
+      },
+      select: { id: true }
+    }),
+    prisma.user.findFirst({
+      where: { 
+        taxpayerId: cleanId,
+        status: ActivationStatus.ACTIVE,
+        archivedAt: null,
+        id: { not: excludeId }
+      },
+      select: { id: true }
+    })
+  ]);
+  if (existingEmail) return 'Email já está em uso';
+  if (existingTaxpayerId) return 'CPF já está em uso';
+  return null;
+};
+
+const createNewUserVersion = async (userId: number, data: UserData) => {
+  const latestVersion = await prisma.userHistory.findFirst({
+    where: { userId, archivedAt: null },
+    orderBy: { version: 'desc' },
+    select: { version: true }
+  });
+  const newVersion = (latestVersion?.version || 0) + 1;
+  await prisma.userHistory.create({
+    data: {
+      userId,
+      version: newVersion,
+      name: data.name.trim(),
+      email: data.email.trim().toLowerCase(),
+      role: data.role,
+      status: ActivationStatus.ACTIVE
+    }
   });
 };
 
-const checkPasswordModification = async (validBody: any, currentPassword: string | null) => {
-  if (validBody.role !== Role.ADMIN || !validBody.password || validBody.password.trim() === '') {
-    return false;
+export const updateUser = async (id: string, data: UserData): Promise<ActionResult> => {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, message: 'Sessão inválida' };
   }
-  
-  if (!currentPassword) return true;
-  
-  return !(await bcrypt.compare(validBody.password, currentPassword));
-};
-
-const determineFinalPassword = async (validBody: any, isPasswordModified: boolean, currentPassword: string | null) => {
-  if (validBody.role !== Role.ADMIN) return null;
-  
-  if (isPasswordModified && validBody.password) {
-    return await bcrypt.hash(validBody.password, 12);
+  const validation = validateUserData(data);
+  if (validation) {
+    return { success: false, message: validation };
   }
-  
-  return currentPassword;
-};
-
-const checkDataChanges = (check: any, validBody: any, isPasswordModified: boolean) => {
-  return (
-    check.name !== validBody.name ||
-    check.email !== validBody.email ||
-    check.role !== validBody.role ||
-    check.status !== validBody.status ||
-    isPasswordModified ||
-    (validBody.role !== Role.ADMIN)
-  );
-};
-
-const updateUserRecords = async (tx: any, userHistoryId: number, userId: number, validBody: any, finalPassword: string | null) => {
-  await Promise.all([
-    tx.userHistory.update({
-      where: { id: userHistoryId },
-      data: {
-        name: validBody.name,
-        email: validBody.email,
-        role: validBody.role,
-        status: validBody.status,
-        password: finalPassword
-      }
-    }),
-    tx.user.update({
-      where: { id: userId },
-      data: { status: validBody.status }
-    })
-  ]);
-};
-
-const handleActionError = (error: unknown) => {
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    const message = (error as { message: string }).message;
-    const knownErrors = [
-      'Nenhum dado foi modificado',
-      'Usuário não encontrado', 
-      'Histórico do usuário não encontrado'
-    ];
-    
-    if (knownErrors.includes(message)) {
-      return { success: false, message };
+  const userId = parseInt(id);
+  if (isNaN(userId)) {
+    return { success: false, message: 'ID de usuário inválido' };
+  }
+  try {
+    const availabilityError = await checkUserAvailability(data.email, data.taxpayerId, userId);
+    if (availabilityError) {
+      return { success: false, message: availabilityError };
     }
+    await createNewUserVersion(userId, data);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { 
+        taxpayerId: cleanTaxpayerId(data.taxpayerId),
+        updatedAt: new Date()
+      }
+    });
+    return { success: true, message: 'Usuário atualizado com sucesso' };
+  } catch (error) {
+    return handleActionError(error);
   }
-  
-  return { success: false, message: 'Erro ao atualizar usuário' };
 };

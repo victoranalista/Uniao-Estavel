@@ -1,29 +1,30 @@
-"use client";
-
+'use client';
 import { useState, useCallback, useEffect, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { FileText, User, Heart, Building } from 'lucide-react';
+import { FileText, User, Heart, Building, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useSession } from '@/lib/hooks/use-session';
-import { declarationFormSchema } from '../utils/schemas';
-import { DeclarationFormData, FormSubmissionProps, DeclarationActionResult } from '../types';
-import { createDeclarationAction } from '../actions/create-declaration';
-import { PersonSection } from './PersonSection';
-import { TextInputField, DateInputField } from './InputFields';
-import { useStates, useFilteredCities } from './useLocationData';
-import { downloadPdf, createFormData } from '../utils/helpers';
-import { PROPERTY_REGIME_OPTIONS, getCurrentDateString } from '../utils/constants';
+import { PersonSection } from '../../new-registration/components/PersonSection';
+import { TextInputField, DateInputField } from '../../new-registration/components/InputFields';
+import { useStates, useFilteredCities } from '../../new-registration/components/useLocationData';
+import { downloadPdf, createFormData } from '../../new-registration/utils/helpers';
+import { PROPERTY_REGIME_OPTIONS, getCurrentDateString } from '../../new-registration/utils/constants';
+import { updateFormSchema } from '../utils/schemas';
+import { UpdateActionResult, UpdateFormData, UpdateFormProps } from '../types';
+import { updateDeclarationAction } from '../actions/update-declaration';
+import { AuditHistory } from './AuditHistory';
 
-const getFormDefaults = (initialData?: Partial<DeclarationFormData>, userName?: string): DeclarationFormData => ({
-  city: 'Brasília',
-  state: 'DF',
+const getFormDefaults = (initialData?: Partial<UpdateFormData>, userName?: string): UpdateFormData => ({
+  city: initialData?.city || 'Brasília',
+  state: initialData?.state || 'DF',
   date: initialData?.date || getCurrentDateString(),
   propertyRegime: initialData?.propertyRegime || 'COMUNHAO_PARCIAL',
   unionStartDate: initialData?.unionStartDate || '',
@@ -34,6 +35,7 @@ const getFormDefaults = (initialData?: Partial<DeclarationFormData>, userName?: 
   pactBook: initialData?.pactBook || '',
   pactPage: initialData?.pactPage || '',
   pactTerm: initialData?.pactTerm || '',
+  averbation: initialData?.averbation || '',
   firstPerson: {
     name: initialData?.firstPerson?.name || '',
     nationality: initialData?.firstPerson?.nationality || '',
@@ -82,13 +84,16 @@ const getFormDefaults = (initialData?: Partial<DeclarationFormData>, userName?: 
   },
 });
 
-export const DeclarationForm = ({ declarationId, initialData, onSuccess }: FormSubmissionProps & { initialData?: Partial<DeclarationFormData> }) => {
+export const UpdateForm = ({ declarationId, initialData, onSuccess, onBack }: UpdateFormProps & { 
+  initialData?: Partial<UpdateFormData>;
+  onBack: () => void;
+}) => {
   const [isSubmitting, startTransition] = useTransition();
   const [formError, setFormError] = useState<string | null>(null);
   const { user } = useSession();
   const { states, isStatesLoading } = useStates();
-  const form = useForm<DeclarationFormData>({
-    resolver: zodResolver(declarationFormSchema),
+  const form = useForm<UpdateFormData>({
+    resolver: zodResolver(updateFormSchema),
     defaultValues: getFormDefaults(initialData, user?.name || '')
   });
   
@@ -96,37 +101,52 @@ export const DeclarationForm = ({ declarationId, initialData, onSuccess }: FormS
   const secondPersonState = form.watch('secondPerson.birthPlaceState');
   const { cities: firstPersonCities, isCitiesLoading: isFirstPersonCitiesLoading } = useFilteredCities(firstPersonState);
   const { cities: secondPersonCities, isCitiesLoading: isSecondPersonCitiesLoading } = useFilteredCities(secondPersonState);
-
+  
   useEffect(() => {
     if (initialData || user?.name) {
-      form.reset(getFormDefaults(initialData, user?.name || ''));
+      const formDefaults = getFormDefaults(initialData, user?.name || '');
+      form.reset(formDefaults);
     }
   }, [initialData, form, user?.name]);
 
-  const handleSubmissionSuccess = useCallback((result: DeclarationActionResult) => {
-    if (!result.success) {
+  useEffect(() => {
+    if (initialData?.firstPerson?.birthPlaceState && initialData.firstPerson.birthPlaceState !== form.getValues('firstPerson.birthPlaceState')) {
+      form.setValue('firstPerson.birthPlaceState', initialData.firstPerson.birthPlaceState);
+    }
+    if (initialData?.secondPerson?.birthPlaceState && initialData.secondPerson.birthPlaceState !== form.getValues('secondPerson.birthPlaceState')) {
+      form.setValue('secondPerson.birthPlaceState', initialData.secondPerson.birthPlaceState);
+    }
+  }, [initialData, form]);
+  
+  const handleSubmissionSuccess = useCallback((result: UpdateActionResult) => {
+    if (result.success) {
+      toast.success('Declaração atualizada com sucesso!');
+      if (result.data?.pdfContent && result.data?.filename) {
+        downloadPdf(result.data.pdfContent, result.data.filename);
+        toast.success('PDF baixado automaticamente!');
+      }
+      onSuccess?.();
+      return null;
+    } else {
       const error = result.error || 'Erro desconhecido';
       toast.error(error);
       return error;
     }
-    
-    const message = declarationId ? 'Declaração atualizada com sucesso!' : 'Declaração criada com sucesso!';
-    toast.success(message);
-    
-    if (result.data?.pdfContent && result.data?.filename) {
-      downloadPdf(result.data.pdfContent, result.data.filename);
-      toast.success('PDF baixado automaticamente!');
-    }
-    
-    onSuccess?.();
-    return null;
-  }, [declarationId, onSuccess]);
+  }, [onSuccess]);
 
-  const processFormSubmission = useCallback(async (formData: DeclarationFormData) => {
+  const createUpdateFormData = (formData: UpdateFormData): FormData => {
+    const data = createFormData(formData);
+    if (formData.averbation) {
+      data.append('averbation', formData.averbation);
+    }
+    return data;
+  };
+
+  const processFormSubmission = useCallback(async (formData: UpdateFormData) => {
     startTransition(async () => {
       setFormError(null);
       try {
-        const result = await createDeclarationAction(createFormData(formData));
+        const result = await updateDeclarationAction(declarationId, createUpdateFormData(formData));
         const error = handleSubmissionSuccess(result);
         setFormError(error);
       } catch (error) {
@@ -135,7 +155,7 @@ export const DeclarationForm = ({ declarationId, initialData, onSuccess }: FormS
         toast.error(errorMessage);
       }
     });
-  }, [handleSubmissionSuccess]);
+  }, [declarationId, handleSubmissionSuccess]);
 
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8 space-y-8">
@@ -147,11 +167,17 @@ export const DeclarationForm = ({ declarationId, initialData, onSuccess }: FormS
             </div>
           </div>
           <CardTitle className="text-3xl font-semibold">
-            {declarationId ? 'Atualizar Registro' : 'Novo Registro de União Estável'}
+            Atualizar Registro de União Estável
           </CardTitle>
           <CardDescription className="text-lg mt-2">
-            Preencha os dados para {declarationId ? 'atualizar' : 'gerar'} a declaração
+            Edite os dados e atualize a declaração
           </CardDescription>
+          <div className="flex justify-center mt-4">
+            <Button variant="outline" onClick={onBack} className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Voltar à Busca
+            </Button>
+          </div>
         </CardHeader>
       </Card>
 
@@ -161,9 +187,8 @@ export const DeclarationForm = ({ declarationId, initialData, onSuccess }: FormS
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
                 <Building className="h-5 w-5" />
-                Dados da Declaração
+                Informações da Declaração
               </CardTitle>
-              <CardDescription>Informações gerais sobre a união estável</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -226,6 +251,29 @@ export const DeclarationForm = ({ declarationId, initialData, onSuccess }: FormS
                   <TextInputField form={form} name="pactTerm" label="Termo do Pacto" required={false} />
                 </div>
               </div>
+              <Separator className="my-8" />
+              <div className="space-y-6">
+                <h4 className="font-medium text-sm text-muted-foreground">
+                  Averbação (opcional)
+                </h4>
+                <FormField
+                  control={form.control}
+                  name="averbation"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Texto da Averbação</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Digite o texto da averbação que será adicionado ao final do documento..."
+                          {...field}
+                          rows={4}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -259,11 +307,13 @@ export const DeclarationForm = ({ declarationId, initialData, onSuccess }: FormS
 
           <div className="flex justify-center pt-4">
             <Button type="submit" disabled={isSubmitting} className="w-full max-w-md" size="lg">
-              {isSubmitting ? 'Processando...' : declarationId ? 'Atualizar Registro' : 'Criar Registro'}
+              {isSubmitting ? 'Processando...' : 'Atualizar Registro'}
             </Button>
           </div>
         </form>
       </Form>
+
+      <AuditHistory recordId={declarationId} tableName="stable_union_declaration" />
     </div>
   );
 };

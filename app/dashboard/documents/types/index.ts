@@ -1,3 +1,6 @@
+import { Prisma } from '@prisma/client';
+export * from '@/lib/utils';
+
 export interface SearchParams {
   name?: string;
   taxpayerId?: string;
@@ -73,4 +76,61 @@ export interface DeclarationData {
   stamp?: string;
   firstPerson: PersonData;
   secondPerson: PersonData;
+}
+
+export type DeclarationWithFullRelations = Prisma.DeclarationGetPayload<{
+  include: {
+    registryInfo: true;
+    participants: {
+      include: {
+        person: {
+          include: {
+            identity: true;
+            civilStatuses: true;
+            addresses: true;
+            contact: true;
+            documents: true;
+            family: true;
+            professional: true;
+            registry: true;
+          };
+        };
+      };
+    };
+  };
+}>;
+
+export type PersonWithRelations = Prisma.PersonGetPayload<{
+  include: {
+    identity: true;
+    civilStatuses: true;
+    addresses: true;
+    contact: true;
+    documents: true;
+    family: true;
+    professional: true;
+    registry: true;
+  };
+}>;
+
+export interface AddressData {
+  street?: string;
+  number?: string;
+  complement?: string | null;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+}
+
+export interface DocumentData {
+  id: string;
+  partner1Name: string;
+  partner2Name: string;
+  partner1TaxpayerId: string;
+  partner2TaxpayerId: string;
+  marriageDate: Date;
+  propertyRegime: string;
+  city: string;
+  state: string;
+  createdAt: Date;
 }

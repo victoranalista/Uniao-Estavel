@@ -1,57 +1,94 @@
 'use server';
-import { validationSchema } from './validationSchema';
+import { cleanTaxpayerId, isValidTaxpayerId, handleActionError } from '@/lib/validators';
 import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
-import { UserFormValues } from '../types';
-import { requireSession } from '@/lib/requireSession';
-import { Role } from '@prisma/client';
+import { auth } from '@/lib/auth';
+import { Role, ActivationStatus } from '@prisma/client';
+import { hashSync } from 'bcryptjs';
 
-export async function createUserAction(data: UserFormValues) {
-  await requireSession([Role.ADMIN]);
-  try {
-    const validated = await validationSchema.parse(data);
-    const hashedPassword = validated.password
-      ? await bcrypt.hash(validated.password, 10)
-      : null;
-    const taxpayerId = validated.taxpayerId
-      ? validated.taxpayerId.replace(/\D/g, '').trim()
-      : '';
-    if (taxpayerId) {
-      const existing = await prisma.user.findUnique({ where: { taxpayerId } });
-      if (existing)
-        return {
-          success: false,
-          message:
-            'Já existe um usuário com este taxpayerId cadastrado. Por favor, informe um novo taxpayerId.'
-        };
-    }
-    await prisma.user.create({
-      data: {
-        taxpayerId: validated.taxpayerId
-          ? validated.taxpayerId.replace(/\D/g, '').trim()
-          : '',
-        status: validated.status,
-        versions: {
-          create: {
-            version: 1,
-            name: validated.name,
-            email: validated.email,
-            role: validated.role,
-            status: validated.status,
-            password: hashedPassword
-          }
-        }
-      }
-    });
-    return {
-      success: true,
-      message: 'Usuário criado com sucesso'
-    };
-  } catch (err) {
-    console.error('Erro ao criar usuário:', err);
-    return {
-      success: false,
-      message: err instanceof Error ? err.message : 'Erro ao criar usuário'
-    };
-  }
+interface UserData {
+  name: string;
+  email: string;
+  taxpayerId: string;
+  role: Role;
+  password?: string;
 }
+
+interface ActionResult {
+  success: boolean;
+  message?: string;
+}
+
+const validateUserData = (data: UserData): string | null => {
+  if (!data.name?.trim()) return 'Nome é obrigatório';
+  if (!data.email?.trim()) return 'Email é obrigatório';
+  if (!data.taxpayerId?.trim()) return 'CPF é obrigatório';
+  if (!isValidTaxpayerId(data.taxpayerId)) return 'CPF inválido';
+  return null;
+};
+
+const prepareUserData = (data: UserData) => ({
+  taxpayerId: cleanTaxpayerId(data.taxpayerId),
+  status: ActivationStatus.ACTIVE,
+  versions: {
+    create: {
+      version: 1,
+      name: data.name.trim(),
+      email: data.email.trim().toLowerCase(),
+      role: data.role,
+      status: ActivationStatus.ACTIVE,
+      ...(data.password && { password: hashSync(data.password, 12) })
+    }
+  }
+});
+
+const checkUserAvailability = async (email: string, taxpayerId: string, excludeId?: number) => {
+  const cleanId = cleanTaxpayerId(taxpayerId);
+  const [existingEmail, existingTaxpayerId] = await Promise.all([
+    prisma.userHistory.findFirst({
+      where: { 
+        email: email.toLowerCase(),
+        status: ActivationStatus.ACTIVE,
+        archivedAt: null,
+        ...(excludeId && { userId: { not: excludeId } })
+      },
+      select: { id: true }
+    }),
+    prisma.user.findFirst({
+      where: { 
+        taxpayerId: cleanId,
+        status: ActivationStatus.ACTIVE,
+        archivedAt: null,
+        ...(excludeId && { id: { not: excludeId } })
+      },
+      select: { id: true }
+    })
+  ]);
+  if (existingEmail) return 'Email já está em uso';
+  if (existingTaxpayerId) return 'CPF já está em uso';
+  return null;
+};
+
+export const createUser = async (data: UserData): Promise<ActionResult> => {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, message: 'Sessão inválida' };
+  }
+  const validation = validateUserData(data);
+  if (validation) {
+    return { success: false, message: validation };
+  }
+  if (!data.password) {
+    return { success: false, message: 'Senha é obrigatória' };
+  }
+  try {
+    const availabilityError = await checkUserAvailability(data.email, data.taxpayerId);
+    if (availabilityError) {
+      return { success: false, message: availabilityError };
+    }
+    const userData = prepareUserData(data);
+    await prisma.user.create({ data: userData });
+    return { success: true, message: 'Usuário criado com sucesso' };
+  } catch (error) {
+    return handleActionError(error);
+  }
+};

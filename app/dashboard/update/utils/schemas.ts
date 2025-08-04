@@ -1,12 +1,6 @@
 import { z } from 'zod';
-import { validatetaxpayerId } from '@/lib/validators';
 
-const cleanCpfForValidation = (value: string): boolean => {
-  const cleanCpf = value.replace(/\D/g, '');
-  return validatetaxpayerId(cleanCpf);
-};
-
-const personSchema = z.object({
+const personUpdateSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   nationality: z.string().min(1, 'Nacionalidade é obrigatória'),
   civilStatus: z.string().min(1, 'Estado civil é obrigatório'),
@@ -15,15 +9,9 @@ const personSchema = z.object({
   birthPlaceCity: z.string().min(1, 'Cidade de nascimento é obrigatória'),
   profession: z.string().min(1, 'Profissão é obrigatória'),
   rg: z.string().min(1, 'RG é obrigatório'),
-  taxpayerId: z.string()
-    .min(1, 'CPF é obrigatório')
-    .refine((value) => {
-      const cleanCpf = value.replace(/\D/g, '');
-      return cleanCpf.length === 11;
-    }, 'CPF deve ter 11 dígitos')
-    .refine(cleanCpfForValidation, 'CPF inválido'),
+  taxpayerId: z.string().min(1, 'CPF é obrigatório'),
   address: z.string().min(1, 'Endereço é obrigatório'),
-  email: z.string().email('Email inválido'),
+  email: z.string().email('Email inválido').min(1, 'Email é obrigatório'),
   phone: z.string().min(1, 'Telefone é obrigatório'),
   fatherName: z.string().min(1, 'Nome do pai é obrigatório'),
   motherName: z.string().min(1, 'Nome da mãe é obrigatório'),
@@ -36,7 +24,7 @@ const personSchema = z.object({
   newName: z.string().optional(),
 });
 
-export const declarationFormSchema = z.object({
+export const updateFormSchema = z.object({
   date: z.string().min(1, 'Data é obrigatória'),
   city: z.string().min(1, 'Cidade é obrigatória'),
   state: z.string().min(1, 'Estado é obrigatório'),
@@ -47,9 +35,14 @@ export const declarationFormSchema = z.object({
   pactDate: z.string().optional(),
   pactOffice: z.string().optional(),
   pactBook: z.string().optional(),
+  pactPage: z.string().optional(),
   pactTerm: z.string().optional(),
-  firstPerson: personSchema,
-  secondPerson: personSchema,
+  averbation: z.string().optional(),
+  firstPerson: personUpdateSchema,
+  secondPerson: personUpdateSchema,
 });
 
-export type DeclarationFormData = z.infer<typeof declarationFormSchema>;
+export const searchFormSchema = z.object({
+  searchTerm: z.string().min(3, 'Digite pelo menos 3 caracteres para buscar'),
+  searchType: z.enum(['name', 'taxpayerId', 'id']),
+});

@@ -59,9 +59,31 @@ const DASHBOARD_ACTIONS: DashboardAction[] = [
   }
 ];
 
-const ActionCard = ({ action, onNavigate }: { action: DashboardAction; onNavigate: (route: string) => void }) => {
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('pt-BR');
+};
+
+const hasSearchCriteria = (searchParameters: RegistrationSearchParams) => {
+  return Object.values(searchParameters).some(value => 
+    value !== undefined && value !== '' && value !== null
+  );
+};
+
+const performSearch = async (searchParameters: RegistrationSearchParams) => {
+  const response = await fetch('/api/registrations/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(searchParameters),
+  });
+  if (!response.ok) throw new Error('Falha na busca');
+  return response.json();
+};
+
+const ActionCard = ({ action, onNavigate }: { 
+  action: DashboardAction; 
+  onNavigate: (route: string) => void 
+}) => {
   const IconComponent = action.icon;
-  
   return (
     <Card className="hover:shadow-lg transition-all duration-300 hover:scale-105">
       <CardHeader className="text-center pb-4">
@@ -113,6 +135,57 @@ const SearchField = ({
   </div>
 );
 
+const RegistrationRow = ({ 
+  registration, 
+  onNavigate 
+}: { 
+  registration: RegistrationData;
+  onNavigate: (id: string, action: 'view' | 'edit') => void;
+}) => (
+  <TableRow>
+    <TableCell className="font-medium">
+      <Badge variant="outline">
+        {registration.protocolNumber}
+      </Badge>
+    </TableCell>
+    <TableCell>
+      <div className="space-y-1">
+        <div className="font-medium">{registration.firstPersonName}</div>
+        <div className="text-sm text-muted-foreground">{registration.secondPersonName}</div>
+      </div>
+    </TableCell>
+    <TableCell>
+      {formatDate(registration.unionDate)}
+    </TableCell>
+    <TableCell>
+      <div className="text-sm">
+        <div>Livro: {registration.bookNumber}</div>
+        <div>Folha: {registration.pageNumber} | Termo: {registration.termNumber}</div>
+      </div>
+    </TableCell>
+    <TableCell className="text-right">
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onNavigate(registration.id, 'view')}
+        >
+          <Eye className="h-4 w-4 mr-1" />
+          Ver
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onNavigate(registration.id, 'edit')}
+        >
+          <Edit className="h-4 w-4 mr-1" />
+          Editar
+        </Button>
+      </div>
+    </TableCell>
+  </TableRow>
+);
+
 export default function Dashboard() {
   const router = useRouter();
   const [searchParameters, setSearchParameters] = useState<RegistrationSearchParams>({});
@@ -123,30 +196,16 @@ export default function Dashboard() {
     key: K,
     value: RegistrationSearchParams[K]
   ) => {
-    setSearchParameters(prev => ({ ...prev, [key]: value }));
+    setSearchParameters((prev: RegistrationSearchParams) => ({ ...prev, [key]: value }));
   }, []);
 
   const executeSearch = useCallback(async () => {
-    const hasSearchCriteria = Object.values(searchParameters).some(value => 
-      value !== undefined && value !== '' && value !== null
-    );
-
-    if (!hasSearchCriteria) return;
-
+    if (!hasSearchCriteria(searchParameters)) return;
     setIsSearching(true);
     try {
-      const response = await fetch('/api/registrations/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(searchParameters),
-      });
-      
-      if (!response.ok) throw new Error('Falha na busca');
-      
-      const data: RegistrationData[] = await response.json();
+      const data: RegistrationData[] = await performSearch(searchParameters);
       setSearchResults(data);
-    } catch (error) {
-      console.error('Search error:', error);
+    } catch {
       setSearchResults([]);
     } finally {
       setIsSearching(false);
@@ -164,10 +223,6 @@ export default function Dashboard() {
     router.push(route);
   }, [router]);
 
-  const formatDate = useCallback((dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
-  }, []);
-
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6 space-y-8">
@@ -179,9 +234,7 @@ export default function Dashboard() {
             RCPN
           </p>
         </div>
-
         <Separator />
-
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {DASHBOARD_ACTIONS.map((action) => (
             <ActionCard 
@@ -191,9 +244,7 @@ export default function Dashboard() {
             />
           ))}
         </div>
-
         <Separator />
-
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -245,7 +296,6 @@ export default function Dashboard() {
                 onChange={(value) => updateSearchParameter('termNumber', value ? parseInt(value) : undefined)}
               />
             </div>
-            
             <Button
               onClick={executeSearch}
               disabled={isSearching}
@@ -263,7 +313,6 @@ export default function Dashboard() {
             </Button>
           </CardContent>
         </Card>
-
         {searchResults.length > 0 && (
           <Card>
             <CardHeader>
@@ -286,48 +335,11 @@ export default function Dashboard() {
                   </TableHeader>
                   <TableBody>
                     {searchResults.map((registration) => (
-                      <TableRow key={registration.id}>
-                        <TableCell className="font-medium">
-                          <Badge variant="outline">
-                            {registration.protocolNumber}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="font-medium">{registration.firstPersonName}</div>
-                            <div className="text-sm text-muted-foreground">{registration.secondPersonName}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {formatDate(registration.unionDate)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <div>Livro: {registration.bookNumber}</div>
-                            <div>Folha: {registration.pageNumber} | Termo: {registration.termNumber}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => navigateToRegistration(registration.id, 'view')}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              Ver
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => navigateToRegistration(registration.id, 'edit')}
-                            >
-                              <Edit className="h-4 w-4 mr-1" />
-                              Editar
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                      <RegistrationRow
+                        key={registration.id}
+                        registration={registration}
+                        onNavigate={navigateToRegistration}
+                      />
                     ))}
                   </TableBody>
                 </Table>

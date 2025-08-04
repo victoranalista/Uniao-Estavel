@@ -3,14 +3,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { useGenderState } from './useGenderState';
 import { 
-  getNacionalidadesPorGenero,
-  getEstadosCivisPorGenero,
-  OFICIAIS_REGISTRADORES 
+  getNationalitiesByGender,
+  getCivilStatusByGender,
+  REGISTRY_OFFICERS 
 } from '@/utils/constants';
+import { UseFormReturn, FieldPath } from 'react-hook-form';
+import { DeclarationFormData } from '../types';
 
 interface SelectFieldProps {
-  form: any;
-  name: string;
+  form: UseFormReturn<DeclarationFormData>;
+  name: FieldPath<DeclarationFormData>;
   label: string;
   options: readonly string[];
   placeholder?: string;
@@ -23,7 +25,7 @@ export const SelectField = ({ form, name, label, options, placeholder = "Selecio
     render={({ field }) => (
       <FormItem>
         <FormLabel>{label}</FormLabel>
-        <Select onValueChange={field.onChange} value={field.value || ''}>
+        <Select onValueChange={field.onChange} value={field.value as string || ''}>
           <FormControl>
             <SelectTrigger>
               <SelectValue placeholder={placeholder} />
@@ -44,45 +46,51 @@ export const SelectField = ({ form, name, label, options, placeholder = "Selecio
 );
 
 interface GenderSelectFieldProps {
-  form: any;
-  prefix: string;
+  form: UseFormReturn<DeclarationFormData>;
+  prefix: 'firstPerson' | 'secondPerson';
   label: string;
   fieldType: 'nationality' | 'civilStatus';
 }
 
+const getFieldOptions = (gender: 'M' | 'F', fieldType: 'nationality' | 'civilStatus'): readonly string[] =>
+  fieldType === 'nationality' ? getNationalitiesByGender(gender) : getCivilStatusByGender(gender);
+
+const getNewGender = (currentGender: 'M' | 'F'): 'M' | 'F' => currentGender === 'M' ? 'F' : 'M';
+
+const updateFieldValue = (
+  form: UseFormReturn<DeclarationFormData>, 
+  fieldName: FieldPath<DeclarationFormData>, 
+  currentOptions: readonly string[], 
+  newOptions: readonly string[], 
+  currentValue: string
+) => {
+  const currentIndex = currentOptions.indexOf(currentValue);
+  if (currentIndex !== -1 && newOptions[currentIndex]) {
+    form.setValue(fieldName, newOptions[currentIndex]);
+  } else {
+    form.setValue(fieldName, '');
+  }
+};
+
 export const GenderSelectField = ({ form, prefix, label, fieldType }: GenderSelectFieldProps) => {
   const isSecondPerson = prefix === 'secondPerson';
   const { gender, toggleGender } = useGenderState(isSecondPerson ? 'F' : 'M');
-  
-  const options = fieldType === 'nationality' 
-    ? getNacionalidadesPorGenero(gender)
-    : getEstadosCivisPorGenero(gender);
+  const options = getFieldOptions(gender, fieldType);
+  const fieldName = `${prefix}.${fieldType}` as FieldPath<DeclarationFormData>;
 
   const handleGenderToggle = () => {
     toggleGender();
-    const currentValue = form.getValues(`${prefix}.${fieldType}`);
-    if (currentValue) {
-      const currentOptions = fieldType === 'nationality'
-        ? getNacionalidadesPorGenero(gender)
-        : getEstadosCivisPorGenero(gender);
-      const currentIndex = currentOptions.indexOf(currentValue);
-      if (currentIndex !== -1) {
-        const newOptions = fieldType === 'nationality'
-          ? getNacionalidadesPorGenero(gender === 'M' ? 'F' : 'M')
-          : getEstadosCivisPorGenero(gender === 'M' ? 'F' : 'M');
-        if (newOptions[currentIndex]) {
-          form.setValue(`${prefix}.${fieldType}`, newOptions[currentIndex]);
-        } else {
-          form.setValue(`${prefix}.${fieldType}`, '');
-        }
-      }
-    }
+    const currentValue = form.getValues(fieldName) as string;
+    if (!currentValue) return;
+    const currentOptions = getFieldOptions(gender, fieldType);
+    const newOptions = getFieldOptions(getNewGender(gender), fieldType);
+    updateFieldValue(form, fieldName, currentOptions, newOptions, currentValue);
   };
 
   return (
     <FormField
       control={form.control}
-      name={`${prefix}.${fieldType}`}
+      name={fieldName}
       render={({ field }) => (
         <FormItem>
           <FormLabel className="flex items-center gap-2">
@@ -96,7 +104,7 @@ export const GenderSelectField = ({ form, prefix, label, fieldType }: GenderSele
               {gender === 'M' ? 'Masculino' : 'Feminino'}
             </Badge>
           </FormLabel>
-          <Select onValueChange={field.onChange} value={field.value || ''}>
+          <Select onValueChange={field.onChange} value={field.value as string || ''}>
             <FormControl>
               <SelectTrigger>
                 <SelectValue placeholder={`Selecione ${fieldType === 'nationality' ? 'a nacionalidade' : 'o estado civil'}...`} />
@@ -118,8 +126,8 @@ export const GenderSelectField = ({ form, prefix, label, fieldType }: GenderSele
 };
 
 interface StateSelectFieldProps {
-  form: any;
-  name: string;
+  form: UseFormReturn<DeclarationFormData>;
+  name: FieldPath<DeclarationFormData>;
   label: string;
   states: string[];
   isLoading: boolean;
@@ -134,7 +142,7 @@ export const StateSelectField = ({ form, name, label, states, isLoading }: State
         <FormLabel>{label}</FormLabel>
         <Select
           onValueChange={field.onChange}
-          value={field.value || ''}
+          value={field.value as string || ''}
           disabled={isLoading}
         >
           <FormControl>
@@ -161,7 +169,7 @@ export const RegistrarSelectField = ({ form, name, label }: Omit<SelectFieldProp
     form={form}
     name={name}
     label={label}
-    options={Object.keys(OFICIAIS_REGISTRADORES)}
+    options={Object.keys(REGISTRY_OFFICERS)}
     placeholder="Selecione o oficial registrador..."
   />
 );

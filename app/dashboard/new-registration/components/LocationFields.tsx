@@ -1,9 +1,11 @@
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { UseFormReturn, FieldPath } from 'react-hook-form';
+import { DeclarationFormData } from '../types';
 
 interface LocationSelectFieldProps {
-  form: any;
-  name: string;
+  form: UseFormReturn<DeclarationFormData>;
+  name: FieldPath<DeclarationFormData>;
   label: string;
   options: string[];
   isLoading: boolean;
@@ -28,7 +30,7 @@ export const LocationSelectField = ({
         <FormLabel>{label}</FormLabel>
         <Select
           onValueChange={field.onChange}
-          value={field.value || ''}
+          value={field.value as string || ''}
           disabled={disabled || isLoading}
         >
           <FormControl>
@@ -51,8 +53,8 @@ export const LocationSelectField = ({
 );
 
 interface StateSelectFieldProps {
-  form: any;
-  name: string;
+  form: UseFormReturn<DeclarationFormData>;
+  name: FieldPath<DeclarationFormData>;
   label: string;
   states: string[];
   isLoading: boolean;
@@ -70,9 +72,9 @@ export const StateSelectField = ({ form, name, label, states, isLoading }: State
 );
 
 interface CitySelectFieldProps {
-  form: any;
-  stateFieldName: string;
-  cityFieldName: string;
+  form: UseFormReturn<DeclarationFormData>;
+  stateFieldName: FieldPath<DeclarationFormData>;
+  cityFieldName: FieldPath<DeclarationFormData>;
   label: string;
   cities: string[];
   isLoading: boolean;

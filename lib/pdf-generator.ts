@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { validatetaxpayerId } from '@/utils/validators';
 import { getNextBookNumbers } from '@/utils/bookControl';
-import { OFICIAIS_REGISTRADORES } from '@/utils/constants';
+import { REGISTRY_OFFICERS } from '@/utils/constants';
 import { PDFDocument, rgb, StandardFonts, PDFImage, PDFPage } from 'pdf-lib';
 import fs from 'fs/promises';
 import path from 'path';
@@ -44,11 +44,10 @@ const declarationSchema = z.object({
   pactBook: z.string().optional(),
   pactPage: z.string().optional(),
   pactTerm: z.string().optional(),
-  averbations: z.array(z.object({
-    description: z.string(),
-    date: z.date(),
-    updatedBy: z.string()
-  })).optional(),
+  isUpdate: z.boolean().optional(),
+  averbation: z.string().optional(),
+  termNumber: z.string().optional(),
+  bookNumber: z.string().optional(),
 });
 
 type DeclarationData = z.infer<typeof declarationSchema>;
@@ -147,12 +146,15 @@ const wrapFormattedText = (formattedParts: Array<{text: string, bold: boolean}>,
   return lines;
 };
 
-const buildDeclarationText = (declaration: DeclarationData) => {
+const buildDeclarationText = (declaration: DeclarationData, isUpdate = false) => {
   const currentDate = getCurrentDate();
-  const registrarFunction = OFICIAIS_REGISTRADORES[declaration.registrarName] || 'Oficial Auxiliar';
-  const averbations = declaration.averbations?.map(av => `- ${av.description} em ${formatDate(av.date)} (por ${av.updatedBy})`).join('\n') || '';
+  const registrarFunction = (REGISTRY_OFFICERS as Record<string, string>)[declaration.registrarName] || 'Oficial Auxiliar';
   
-  return `Aos ${formatDateExtended(currentDate)}, na cidade de Brasília, Distrito Federal, por videoconferência, perante mim, ${declaration.registrarName}, ${registrarFunction} do **Cartório Colorado - 8º Ofício de Registro Civil, Títulos e Documentos e Pessoas Jurídicas do Distrito Federal**, compareceram como **DECLARANTES:** 1. **${declaration.firstPerson.name.toUpperCase()}**, ${declaration.firstPerson.nationality}, ${declaration.firstPerson.civilStatus}, nascido em ${formatDate(declaration.firstPerson.birthDate)}, natural de ${declaration.firstPerson.birthPlace}, profissionalmente identificado como ${declaration.firstPerson.profession}, portador da Carteira de Identidade nº ${declaration.firstPerson.rg}, inscrita no Cadastro de Pessoas Físicas (CPF) sob o nº ${declaration.firstPerson.taxpayerId}, residente e domiciliado em ${declaration.firstPerson.address}, endereço eletrônico ${declaration.firstPerson.email}, telefone ${declaration.firstPerson.phone}, filho de ${declaration.firstPerson.fatherName} e ${declaration.firstPerson.motherName} e 2. **${declaration.secondPerson.name.toUpperCase()}**, ${declaration.secondPerson.nationality}, ${declaration.secondPerson.civilStatus}, nascida em ${formatDate(declaration.secondPerson.birthDate)}, natural de ${declaration.secondPerson.birthPlace}, profissionalmente identificado como ${declaration.secondPerson.profession}, portadora da Carteira de Identidade nº ${declaration.secondPerson.rg}, inscrita no Cadastro de Pessoas Físicas (CPF) sob o nº ${declaration.secondPerson.taxpayerId}, residente e domiciliado em ${declaration.secondPerson.address}, endereço eletrônico ${declaration.secondPerson.email}, telefone ${declaration.secondPerson.phone}, filha de ${declaration.secondPerson.fatherName} e ${declaration.secondPerson.motherName}. **CAPACIDADE.** Os declarantes, **maiores, capazes e juridicamente aptos**, foram reconhecidos por mim, bem como pelo IdRC (Sistema de Autenticação Eletrônica do Registro Civil), em consonância com o art. 228-B, caput e parágrafo único, do provimento CNJ 149/2023. Procedi à verificação da **capacidade de fato e da livre manifestação de vontade dos declarantes**, não constatando qualquer indício de coação, erro, dolo ou qualquer outra circunstância que pudesse comprometer a legalidade deste ato. **DECLARAÇÃO.** Dessa forma, os declarantes **manifestam e fazem constar** neste instrumento a existência de sua **união estável**, nos termos do **artigo 1.723 do Código Civil Brasileiro**, declarando que: a) convivem de **forma pública, contínua, duradoura e com o objetivo de constituição de família** desde o dia **${formatDate(declaration.unionStartDate)}**, sendo sua relação pautada na reciprocidade, respeito mútuo, lealdade e assistência recíproca; b) optam, para reger suas relações patrimoniais, pelo regime da ${getPropertyRegimeText(declaration.propertyRegime)}; c) declaram, sob as penas da lei, **não haver qualquer impedimento para a formalização desta união**, conforme previsto no artigo 1.521 do Código Civil; d) foram informadas quanto às disposições do **artigo 1.727 do Código Civil**, que diferencia a união estável do concubinato, bem como sobre a possibilidade facultativa de registro deste termo no Livro "E" do 1º Ofício de Registro Civil do domicílio do casal, para fins de publicidade e efeitos erga omnes; e) **não há termo declaratório de união estável anterior** em nome de qualquer das declarantes; **CRC.** Procedi à consulta na Central de Informações do Registro Civil das Pessoas Naturais (CRC), não sendo localizado qualquer termo declaratório de união estável pré-existente em nome dos declarantes. **LAVRATURA.** Diante da manifestação expressa de vontade dos companheiros e por se acharem justos e acordados, solicitaram-me a lavratura do presente termo, que, após lido, conferido e considerado conforme, assinam. Este instrumento é lavrado com fundamento nos **artigos 1.723 a 1.727 do Código Civil Brasileiro, nos artigos 537 a 546 do Provimento nº 149 do Conselho Nacional de Justiça (CNJ) e no §3º do artigo 515-L do mesmo provimento**, servindo como **prova jurídica plena da relação aqui declarada**, e devidamente arquivado na pasta eletrônica referente ao Termo de União Estável **nº {TERMO}** desta Serventia. Selo Digital: {SELO}. Para consultar o selo, acesse: tjdft.jus.br. E, para que produza os efeitos legais cabíveis, firmam o presente termo, o qual tem valor jurídico de certidão, conforme art. 538, §1º do Provimento CNJ 149/2023. Brasília/DF, **${formatDate(currentDate)}**${averbations ? `\n\n**AVERBAÇÕES:**\n${averbations}` : ''}`;
+  if (isUpdate && declaration.averbation) {
+    return `**AVERBAÇÃO**\n\nAos ${formatDateExtended(currentDate)}, faço constar que em ${formatDate(currentDate)}, foi realizada a seguinte atualizacão nos dados do presente termo:\n\n**${declaration.averbation}**\n\nA presente averbação foi realizada com base na documentação apresentada e em conformidade com as disposições legais aplicáveis.\n\nBrasília/DF, **${formatDate(currentDate)}**`;
+  }
+  
+  return `Aos ${formatDateExtended(currentDate)}, na cidade de Brasília, Distrito Federal, por videoconferência, perante mim, ${declaration.registrarName}, ${registrarFunction} do **Cartório Colorado - 8º Ofício de Registro Civil, Títulos e Documentos e Pessoas Jurídicas do Distrito Federal**, compareceram como **DECLARANTES:** 1. **${declaration.firstPerson.name.toUpperCase()}**, ${declaration.firstPerson.nationality}, ${declaration.firstPerson.civilStatus}, nascido em ${formatDate(declaration.firstPerson.birthDate)}, natural de ${declaration.firstPerson.birthPlace}, profissionalmente identificado como ${declaration.firstPerson.profession}, portador da Carteira de Identidade nº ${declaration.firstPerson.rg}, inscrita no Cadastro de Pessoas Físicas (CPF) sob o nº ${declaration.firstPerson.taxpayerId}, residente e domiciliado em ${declaration.firstPerson.address}, endereço eletrônico ${declaration.firstPerson.email}, telefone ${declaration.firstPerson.phone}, filho de ${declaration.firstPerson.fatherName} e ${declaration.firstPerson.motherName} e 2. **${declaration.secondPerson.name.toUpperCase()}**, ${declaration.secondPerson.nationality}, ${declaration.secondPerson.civilStatus}, nascida em ${formatDate(declaration.secondPerson.birthDate)}, natural de ${declaration.secondPerson.birthPlace}, profissionalmente identificado como ${declaration.secondPerson.profession}, portadora da Carteira de Identidade nº ${declaration.secondPerson.rg}, inscrita no Cadastro de Pessoas Físicas (CPF) sob o nº ${declaration.secondPerson.taxpayerId}, residente e domiciliado em ${declaration.secondPerson.address}, endereço eletrônico ${declaration.secondPerson.email}, telefone ${declaration.secondPerson.phone}, filha de ${declaration.secondPerson.fatherName} e ${declaration.secondPerson.motherName}. **CAPACIDADE.** Os declarantes, **maiores, capazes e juridicamente aptos**, foram reconhecidos por mim, bem como pelo IdRC (Sistema de Autenticação Eletrônica do Registro Civil), em consonância com o art. 228-B, caput e parágrafo único, do provimento CNJ 149/2023. Procedi à verificação da **capacidade de fato e da livre manifestação de vontade dos declarantes**, não constatando qualquer indício de coação, erro, dolo ou qualquer outra circunstância que pudesse comprometer a legalidade deste ato. **DECLARAÇÃO.** Dessa forma, os declarantes **manifestam e fazem constar** neste instrumento a existência de sua **união estável**, nos termos do **artigo 1.723 do Código Civil Brasileiro**, declarando que: a) convivem de **forma pública, contínua, duradoura e com o objetivo de constituição de família** desde o dia **${formatDate(declaration.unionStartDate)}**, sendo sua relação pautada na reciprocidade, respeito mútuo, lealdade e assistência recíproca; b) optam, para reger suas relações patrimoniais, pelo regime da ${getPropertyRegimeText(declaration.propertyRegime)}; c) declaram, sob as penas da lei, **não haver qualquer impedimento para a formalização desta união**, conforme previsto no artigo 1.521 do Código Civil; d) foram informadas quanto às disposições do **artigo 1.727 do Código Civil**, que diferencia a união estável do concubinato, bem como sobre a possibilidade facultativa de registro deste termo no Livro "E" do 1º Ofício de Registro Civil do domicílio do casal, para fins de publicidade e efeitos erga omnes; e) **não há termo declaratório de união estável anterior** em nome de qualquer das declarantes; **CRC.** Procedi à consulta na Central de Informações do Registro Civil das Pessoas Naturais (CRC), não sendo localizado qualquer termo declaratório de união estável pré-existente em nome dos declarantes. **LAVRATURA.** Diante da manifestação expressa de vontade dos companheiros e por se acharem justos e acordados, solicitaram-me a lavratura do presente termo, que, após lido, conferido e considerado conforme, assinam. Este instrumento é lavrado com fundamento nos **artigos 1.723 a 1.727 do Código Civil Brasileiro, nos artigos 537 a 546 do Provimento nº 149 do Conselho Nacional de Justiça (CNJ) e no §3º do artigo 515-L do mesmo provimento**, servindo como **prova jurídica plena da relação aqui declarada**, e devidamente arquivado na pasta eletrônica referente ao Termo de União Estável **nº {TERMO}** desta Serventia. Selo Digital: {SELO}. Para consultar o selo, acesse: tjdft.jus.br. E, para que produza os efeitos legais cabíveis, firmam o presente termo, o qual tem valor jurídico de certidão, conforme art. 538, §1º do Provimento CNJ 149/2023. Brasília/DF, **${formatDate(currentDate)}**`;
 };
 
 const loadBackgroundImage = async (pdfDoc: PDFDocument) => {
@@ -251,6 +253,20 @@ const drawSignatures = (page: PDFPage, declaration: DeclarationData, registrarFu
   page.drawText(registrarFunction, { x: (pageWidth - registrarFunctionWidth) / 2, y: currentY, size: 10, font: helveticaFont, color: rgb(0, 0, 0) });
 };
 
+const drawOnlyRegistrarSignature = (page: PDFPage, registrarName: string, registrarFunction: string, helveticaFont: any, helveticaBold: any, startY: number) => {
+  const { width: pageWidth } = page.getSize();
+  let currentY = startY - 40;
+  
+  const registrarNameText = registrarName.toUpperCase();
+  const registrarNameWidth = helveticaBold.widthOfTextAtSize(registrarNameText, 11);
+  page.drawText(registrarNameText, { x: (pageWidth - registrarNameWidth) / 2, y: currentY, size: 11, font: helveticaBold, color: rgb(0, 0, 0) });
+  
+  currentY -= 15;
+  
+  const registrarFunctionWidth = helveticaFont.widthOfTextAtSize(registrarFunction, 10);
+  page.drawText(registrarFunction, { x: (pageWidth - registrarFunctionWidth) / 2, y: currentY, size: 10, font: helveticaFont, color: rgb(0, 0, 0) });
+};
+
 const calculateLineWidth = (line: Array<{text: string, bold: boolean}>, fonts: { helveticaFont: any; helveticaBold: any }) => {
   return line.reduce((width, part) => {
     const font = part.bold ? fonts.helveticaBold : fonts.helveticaFont;
@@ -269,7 +285,7 @@ const drawEndLineDashes = (page: PDFPage, line: Array<{text: string, bold: boole
   }
 };
 
-const drawSingleLine = (page: PDFPage, line: Array<{text: string, bold: boolean}>, currentY: number, config: { margin: number; pageWidth: number; lineHeight: number }, fonts: { helveticaFont: any; helveticaBold: any }, isLastLine: boolean) => {
+const drawSingleLine = (page: PDFPage, line: Array<{text: string, bold: boolean}>, currentY: number, config: { margin: number; pageWidth: number; lineHeight: number; signatureAreaHeight: number; marginBottom: number }, fonts: { helveticaFont: any; helveticaBold: any }, isLastLine: boolean) => {
   if (line.length > 1 && !isLastLine) {
     drawJustifiedText(page, line, config.margin, currentY, config.pageWidth - config.margin * 2, fonts.helveticaFont, fonts.helveticaBold);
   } else {
@@ -298,16 +314,31 @@ const drawTextContent = (page: PDFPage, textLines: Array<Array<{text: string, bo
   return { finalPage: currentPage, finalY: currentY };
 };
 
-const buildCompletePdf = async (pdfDoc: PDFDocument, fonts: { helveticaFont: any; helveticaBold: any }, backgroundImage: PDFImage | null, validatedData: DeclarationData, config: { pageWidth: number; pageHeight: number; margin: number; lineHeight: number; signatureAreaHeight: number; marginBottom: number }, book: string, term: number, finalSeal: string, registrarFunction: string) => {
+const buildCompletePdf = async (pdfDoc: PDFDocument, fonts: { helveticaFont: any; helveticaBold: any }, backgroundImage: PDFImage | null, validatedData: DeclarationData, config: { pageWidth: number; pageHeight: number; margin: number; lineHeight: number; signatureAreaHeight: number; marginBottom: number }, book: string, term: string, finalSeal: string, registrarFunction: string) => {
   const maxWidth = config.pageWidth - config.margin * 2;
+  const isUpdate = validatedData.isUpdate || false;
+  const useExistingNumbers = isUpdate && validatedData.termNumber && validatedData.bookNumber;
+  const finalBook = useExistingNumbers ? validatedData.bookNumber! : book;
+  const finalTerm = useExistingNumbers ? validatedData.termNumber! : term;
+  
   let currentPage = createPageWithBackground(pdfDoc, backgroundImage);
-  let currentY = drawHeader(currentPage, book, term.toString(), fonts.helveticaBold);
-  const declarationText = buildDeclarationText(validatedData).replace('{TERMO}', term.toString()).replace('{SELO}', finalSeal);
+  let currentY = drawHeader(currentPage, finalBook, finalTerm, fonts.helveticaBold);
+  
+  const declarationText = buildDeclarationText(validatedData, isUpdate)
+    .replace('{TERMO}', finalTerm)
+    .replace('{SELO}', finalSeal);
+  
   const formattedParts = parseFormattedText(declarationText);
   const textLines = wrapFormattedText(formattedParts, maxWidth, 11, fonts.helveticaFont, fonts.helveticaBold);
-  const { finalPage, finalY } = drawTextContent(currentPage, textLines, config, fonts, pdfDoc, backgroundImage, book, term.toString());
-  drawSignatures(finalPage, validatedData, registrarFunction, fonts.helveticaFont, fonts.helveticaBold, finalY);
-  return await finalizePdf(pdfDoc, book, term);
+  const { finalPage, finalY } = drawTextContent(currentPage, textLines, config, fonts, pdfDoc, backgroundImage, finalBook, finalTerm);
+  
+  if (isUpdate) {
+    drawOnlyRegistrarSignature(finalPage, validatedData.registrarName, registrarFunction, fonts.helveticaFont, fonts.helveticaBold, finalY);
+  } else {
+    drawSignatures(finalPage, validatedData, registrarFunction, fonts.helveticaFont, fonts.helveticaBold, finalY);
+  }
+  
+  return await finalizePdf(pdfDoc, finalBook, finalTerm);
 };
 
 const validatePdfData = (data: unknown) => {
@@ -318,7 +349,9 @@ const validatePdfData = (data: unknown) => {
 
 const getFinalSeal = (data: DeclarationData) => data.stamp || getDefaultSeal();
 
-const getRegistrarFunction = (registrarName: string) => OFICIAIS_REGISTRADORES[registrarName] || 'Oficial Auxiliar';
+const getRegistrarFunction = (registrarName: string): string => {
+  return (REGISTRY_OFFICERS as Record<string, string>)[registrarName] || 'Oficial Auxiliar';
+};
 
 const createPdfDocument = async () => await PDFDocument.create();
 
@@ -337,7 +370,7 @@ const createPdfConfig = () => ({
   marginBottom: 50
 });
 
-const finalizePdf = async (pdfDoc: PDFDocument, book: string, term: number) => {
+const finalizePdf = async (pdfDoc: PDFDocument, book: string, term: string) => {
   const pdfBytes = await pdfDoc.save();
   const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
   return { 
@@ -351,14 +384,26 @@ const finalizePdf = async (pdfDoc: PDFDocument, book: string, term: number) => {
 export const generatePdfAction = async (declarationData: unknown) => {
   try {
     const validatedData = validatePdfData(declarationData);
-    const { book, term } = await getNextBookNumbers();
+    const isUpdate = validatedData.isUpdate || false;
+    const useExistingNumbers = isUpdate && validatedData.termNumber && validatedData.bookNumber;
+    
+    let book: string, term: string;
+    if (useExistingNumbers) {
+      book = validatedData.bookNumber!;
+      term = validatedData.termNumber!;
+    } else {
+      const bookNumbers = await getNextBookNumbers();
+      book = bookNumbers.book;
+      term = bookNumbers.term;
+    }
+    
     const finalSeal = getFinalSeal(validatedData);
     const registrarFunction = getRegistrarFunction(validatedData.registrarName);
     const pdfDoc = await createPdfDocument();
     const fonts = await embedFonts(pdfDoc);
     const backgroundImage = await loadBackgroundImage(pdfDoc);
     const pdfConfig = createPdfConfig();
-    return await buildCompletePdf(pdfDoc, fonts, backgroundImage, validatedData, pdfConfig, book, Number(term), finalSeal, registrarFunction);
+    return await buildCompletePdf(pdfDoc, fonts, backgroundImage, validatedData, pdfConfig, book, term, finalSeal, registrarFunction);
   } catch (error) {
     console.error('PDF Generation Error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Erro ao gerar PDF' };
@@ -374,7 +419,7 @@ export const generateSecondCopyPdfAction = async (declarationData: unknown, exis
     const fonts = await embedFonts(pdfDoc);
     const backgroundImage = await loadBackgroundImage(pdfDoc);
     const pdfConfig = createPdfConfig();
-    return await buildCompletePdf(pdfDoc, fonts, backgroundImage, validatedData, pdfConfig, existingBook, Number(existingTerm), finalSeal, registrarFunction);
+    return await buildCompletePdf(pdfDoc, fonts, backgroundImage, validatedData, pdfConfig, existingBook, existingTerm, finalSeal, registrarFunction);
   } catch (error) {
     console.error('Second Copy PDF Generation Error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Erro ao gerar segunda via do PDF' };

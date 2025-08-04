@@ -2,10 +2,12 @@ import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/comp
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { MaskedInput } from './MaskedInput';
+import { UseFormReturn, FieldPath } from 'react-hook-form';
+import { DeclarationFormData } from '../types';
 
 interface TextInputFieldProps {
-  form: any;
-  name: string;
+  form: UseFormReturn<DeclarationFormData>;
+  name: FieldPath<DeclarationFormData>;
   label: string;
   required?: boolean;
   mask?: string;
@@ -23,9 +25,9 @@ export const TextInputField = ({ form, name, label, required = true, mask }: Tex
         </FormLabel>
         <FormControl>
           {mask ? (
-            <MaskedInput mask={mask} {...field} value={field.value || ''} />
+            <MaskedInput mask={mask} {...field} value={field.value as string || ''} />
           ) : (
-            <Input {...field} value={field.value || ''} />
+            <Input {...field} value={field.value as string || ''} />
           )}
         </FormControl>
         <FormMessage />
@@ -35,8 +37,8 @@ export const TextInputField = ({ form, name, label, required = true, mask }: Tex
 );
 
 interface DateInputFieldProps {
-  form: any;
-  name: string;
+  form: UseFormReturn<DeclarationFormData>;
+  name: FieldPath<DeclarationFormData>;
   label: string;
   required?: boolean;
 }
@@ -52,7 +54,7 @@ export const DateInputField = ({ form, name, label, required = true }: DateInput
           {!required && <Badge variant="outline" className="text-xs">Opcional</Badge>}
         </FormLabel>
         <FormControl>
-          <Input type="date" {...field} value={field.value || ''} />
+          <Input type="date" {...field} value={field.value as string || ''} />
         </FormControl>
         <FormMessage />
       </FormItem>

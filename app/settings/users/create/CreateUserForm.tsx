@@ -50,7 +50,7 @@ export default function CreateUserForm() {
     defaultValue: Role.USER
   });
 
-  usePersonTaxPayerIdAvailability(methods);
+  usePersonTaxPayerIdAvailability(methods as any);
 
   const fields = useMemo<Array<Field>>(() => {
     const baseFields: Array<Field> = [

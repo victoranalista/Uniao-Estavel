@@ -1,4 +1,4 @@
-import { AcuityClient, AcuityFormField, MappedClient } from '@/types/acuity';
+import { AcuityClient, AcuityFormField, MappedClient, AcuityApiResponse } from '../types/acuity';
 
 export class AcuityError extends Error {
   constructor(
@@ -46,7 +46,7 @@ export class AcuityService {
     return field.value;
   }
 
-  private async fetchWithAuth(endpoint: string, options: RequestInit = {}): Promise<any> {
+  private async fetchWithAuth(endpoint: string, options: RequestInit = {}): Promise<AcuityApiResponse> {
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
@@ -62,15 +62,15 @@ export class AcuityService {
         throw new AcuityError(
           `Acuity API error: ${response.statusText}`,
           response.status,
-          errorData
+          JSON.stringify(errorData)
         );
       }
 
-      return await response.json();
+      const data = await response.json();
+      return { data, statusCode: response.status };
     } catch (error) {
-      if (error instanceof AcuityError) {
-        throw error;
-      }
+      if (error instanceof AcuityError) throw error;
+      
       throw new AcuityError(
         'Failed to communicate with Acuity API',
         500,
@@ -82,10 +82,9 @@ export class AcuityService {
   public async getClients(search?: string): Promise<AcuityClient[]> {
     try {
       const endpoint = search ? `/clients?search=${encodeURIComponent(search)}` : '/clients';
-      const clients = await this.fetchWithAuth(endpoint);
-      return clients;
+      const response = await this.fetchWithAuth(endpoint);
+      return response.data as AcuityClient[];
     } catch (error) {
-      console.error('Failed to fetch Acuity clients:', error);
       throw new AcuityError(
         'Failed to fetch clients from Acuity',
         error instanceof AcuityError ? error.statusCode : 500,
@@ -96,10 +95,9 @@ export class AcuityService {
 
   public async getClientById(id: string): Promise<AcuityClient> {
     try {
-      const client = await this.fetchWithAuth(`/clients/${id}`);
-      return client as AcuityClient;
+      const response = await this.fetchWithAuth(`/clients/${id}`);
+      return response.data as AcuityClient;
     } catch (error) {
-      console.error(`Failed to fetch Acuity client with ID ${id}:`, error);
       throw new AcuityError(
         'Failed to fetch client from Acuity',
         error instanceof AcuityError ? error.statusCode : 500,

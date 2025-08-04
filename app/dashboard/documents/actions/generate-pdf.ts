@@ -1,10 +1,13 @@
 'use server';
 import { prisma } from '@/lib/prisma';
 import { generateSecondCopyPdfAction } from '@/lib/pdf-generator';
-import { PdfGenerationResult } from '../types';
+import { PdfGenerationResult, DeclarationWithFullRelations, PersonWithRelations, AddressData } from '../types';
+import { requireSession } from '@/lib/requireSession';
+import { Role } from '@prisma/client';
 
 export const generateSecondCopyAction = async (declarationId: string): Promise<PdfGenerationResult> => {
   try {
+    await requireSession([Role.ADMIN, Role.USER]);
     const declaration = await fetchDeclarationWithBookInfo(declarationId);
     if (!declaration) return { success: false, error: 'Declaração não encontrada' };
     if (!declaration.termNumber || !declaration.bookNumber) return { success: false, error: 'Declaração não possui termo registrado' };
@@ -33,9 +36,10 @@ export const generateSecondCopyAction = async (declarationId: string): Promise<P
   }
 };
 
-const fetchDeclarationWithBookInfo = async (id: string) => {
+const fetchDeclarationWithBookInfo = async (id: string): Promise<DeclarationWithFullRelations | null> => {
+  await requireSession([Role.ADMIN, Role.USER]);
   return await prisma.declaration.findFirst({
-    where: { id, deletedAt: null },
+    where: { id },
     include: {
       registryInfo: true,
       participants: {
@@ -58,9 +62,8 @@ const fetchDeclarationWithBookInfo = async (id: string) => {
   });
 };
 
-const mapDeclarationToPdfData = (declaration: any) => {
+const mapDeclarationToPdfData = (declaration: DeclarationWithFullRelations) => {
   const [firstParticipant, secondParticipant] = declaration.participants;
-  
   return {
     city: declaration.city,
     state: declaration.state,
@@ -72,17 +75,16 @@ const mapDeclarationToPdfData = (declaration: any) => {
   };
 };
 
-const mapPersonToPdfFormat = (person: any) => {
+const mapPersonToPdfFormat = (person: PersonWithRelations) => {
   const address = person.addresses?.[0];
   const birthPlace = person.identity?.birthPlace || (address ? `${address.city}, ${address.state}` : '');
   const fullAddress = buildFullAddress(address);
-  
   return {
     name: person.identity?.fullName || '',
     taxpayerId: person.identity?.taxId || '',
     nationality: person.identity?.nationality || '',
     civilStatus: person.civilStatuses?.[0]?.status || '',
-    birthDate: formatDateForPdf(person.identity?.birthDate),
+    birthDate: formatDateForPdf(person.identity?.birthDate || null),
     birthPlace,
     profession: person.professional?.profession || '',
     rg: person.documents?.rg || '',
@@ -105,7 +107,7 @@ const formatDateForPdf = (date: Date | string | null) => {
   return dateObj.toISOString().split('T')[0];
 };
 
-const buildFullAddress = (address: any) => {
+const buildFullAddress = (address?: AddressData) => {
   if (!address) return '';
   const parts = [
     address.street,

@@ -1,9 +1,9 @@
 'use server';
-import { isValidTaxpayerId } from '@/lib/validators';
+import { cleanTaxpayerId, isValidTaxpayerId } from '@/lib/validators';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 
-interface DeclarationData {
+interface UpdateData {
   partner1Name: string;
   partner1TaxpayerId: string;
   partner1BirthDate: string;
@@ -16,33 +16,22 @@ interface DeclarationData {
   state: string;
 }
 
-interface CreateResult {
+interface UpdateResult {
   success: boolean;
-  data?: { id: string };
   message?: string;
 }
 
-const DEFAULTS = {
-  CITY: 'Brasília',
-  STATE: 'DF',
-  PROPERTY_REGIME: 'COMUNHAO_PARCIAL'
-} as const;
-
-const validateRequiredFields = (data: DeclarationData): string | null => {
-  const required = [
-    'partner1Name', 'partner1TaxpayerId', 'partner1BirthDate',
-    'partner2Name', 'partner2TaxpayerId', 'partner2BirthDate',
-    'marriageDate'
-  ];
+const validateRequiredFields = (data: UpdateData): string | null => {
+  const required = ['partner1Name', 'partner1TaxpayerId', 'partner2Name', 'partner2TaxpayerId'];
   for (const field of required) {
-    if (!data[field as keyof DeclarationData]?.trim()) {
+    if (!data[field as keyof UpdateData]?.trim()) {
       return `${field} é obrigatório`;
     }
   }
   return null;
 };
 
-const validateTaxpayerIds = (data: DeclarationData): string | null => {
+const validateTaxpayerIds = (data: UpdateData): string | null => {
   if (!isValidTaxpayerId(data.partner1TaxpayerId)) {
     return 'CPF do primeiro parceiro inválido';
   }
@@ -52,17 +41,15 @@ const validateTaxpayerIds = (data: DeclarationData): string | null => {
   return null;
 };
 
-const prepareDeclarationData = (data: DeclarationData) => ({
-  status: 'ACTIVE' as const,
-  declarationDate: new Date(),
+const prepareUpdateData = (data: UpdateData) => ({
   unionStartDate: new Date(data.marriageDate),
-  propertyRegime: data.propertyRegime || DEFAULTS.PROPERTY_REGIME,
-  city: data.city || DEFAULTS.CITY,
-  state: data.state || DEFAULTS.STATE,
-  createdAt: new Date()
+  propertyRegime: data.propertyRegime,
+  city: data.city,
+  state: data.state,
+  updatedAt: new Date()
 });
 
-export const createDeclaration = async (data: DeclarationData): Promise<CreateResult> => {
+export const updateDeclaration = async (id: string, data: UpdateData): Promise<UpdateResult> => {
   const session = await auth();
   if (!session?.user) {
     return { success: false, message: 'Sessão inválida' };
@@ -76,12 +63,12 @@ export const createDeclaration = async (data: DeclarationData): Promise<CreateRe
     return { success: false, message: taxpayerIdValidation };
   }
   try {
-    const declarationData = prepareDeclarationData(data);
-    const declaration = await prisma.declaration.create({
-      data: declarationData,
-      select: { id: true }
+    const updateData = prepareUpdateData(data);
+    await prisma.declaration.update({
+      where: { id },
+      data: updateData
     });
-    return { success: true, data: declaration };
+    return { success: true, message: 'Declaração atualizada com sucesso' };
   } catch {
     return { success: false, message: 'Erro interno do servidor' };
   }

@@ -35,8 +35,7 @@ export default function EditUserForm({
 }) {
   const router = useRouter();
   const methods = useForm<EditFormValues>({
-    resolver: zodResolver(validationSchema),
-    defaultValues: {
+    resolver: zodResolver(validationSchema),    defaultValues: {
       ...initialValues,
       password: initialValues.password ?? ''
     },
