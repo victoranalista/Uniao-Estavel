@@ -56,7 +56,7 @@ function DesktopNav(props: { role?: string }) {
       <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
         <Image
           src="/images/logo_dark_black.png"
-          alt="CC Catarina"
+          alt="CC Napoleão"
           width={32}
           height={32}
           className="transition-all group-hover:scale-110 dark:invert"
@@ -67,7 +67,7 @@ function DesktopNav(props: { role?: string }) {
         >
           <Home className="h-5 w-5 " />
         </NavItem>
-        <span className="sr-only">CC Catarina</span>
+        <span className="sr-only">CC Napoleão</span>
       </nav>
     </aside>
   );

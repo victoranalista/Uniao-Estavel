@@ -1,5 +1,6 @@
 import { BrasilAPI } from '@matheustrres/brasilapi';
 export * from '@/lib/utils';
+
 export const MALE_NATIONALITIES = [
   'Brasileiro', 'Afegão', 'Albanês', 'Alemão', 'Americano', 'Andorrano', 'Angolano',
   'Antiguano', 'Argentino', 'Armênio', 'Australiano', 'Austríaco', 'Azerbaijano',

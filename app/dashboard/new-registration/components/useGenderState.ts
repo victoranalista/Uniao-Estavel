@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { GenderState } from '../types';
+import { GenderState } from '../types/types';
 
 export const useGenderState = (initialGender: 'M' | 'F' = 'M'): GenderState => {
   const [gender, setGender] = useState<'M' | 'F'>(initialGender);

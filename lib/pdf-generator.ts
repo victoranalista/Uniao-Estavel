@@ -1,7 +1,6 @@
 'use server';
 import { z } from 'zod';
 import { validatetaxpayerId } from '@/utils/validators';
-import { getNextBookNumbers } from '@/utils/bookControl';
 import { REGISTRY_OFFICERS } from '@/utils/constants';
 import { PDFDocument, rgb, StandardFonts, PDFImage, PDFPage } from 'pdf-lib';
 import fs from 'fs/promises';
@@ -381,7 +380,7 @@ const finalizePdf = async (pdfDoc: PDFDocument, book: string, term: string) => {
   };
 };
 
-export const generatePdfAction = async (declarationData: unknown) => {
+export const generatePdfAction = async (declarationData: unknown, bookNumbers?: { book: string; term: string }) => {
   try {
     const validatedData = validatePdfData(declarationData);
     const isUpdate = validatedData.isUpdate || false;
@@ -391,10 +390,11 @@ export const generatePdfAction = async (declarationData: unknown) => {
     if (useExistingNumbers) {
       book = validatedData.bookNumber!;
       term = validatedData.termNumber!;
-    } else {
-      const bookNumbers = await getNextBookNumbers();
+    } else if (bookNumbers) {
       book = bookNumbers.book;
       term = bookNumbers.term;
+    } else {
+      throw new Error('Book numbers are required for new declarations');
     }
     
     const finalSeal = getFinalSeal(validatedData);

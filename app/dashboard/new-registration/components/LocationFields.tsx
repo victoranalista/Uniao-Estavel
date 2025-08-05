@@ -1,17 +1,6 @@
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UseFormReturn, FieldPath } from 'react-hook-form';
-import { DeclarationFormData } from '../types';
-
-interface LocationSelectFieldProps {
-  form: UseFormReturn<DeclarationFormData>;
-  name: FieldPath<DeclarationFormData>;
-  label: string;
-  options: string[];
-  isLoading: boolean;
-  disabled?: boolean;
-  placeholder: string;
-}
+import { LocationSelectFieldProps, StateSelectFieldProps, CitySelectFieldProps } from '../types/types';
 
 export const LocationSelectField = ({ 
   form, 
@@ -30,7 +19,7 @@ export const LocationSelectField = ({
         <FormLabel>{label}</FormLabel>
         <Select
           onValueChange={field.onChange}
-          value={field.value as string || ''}
+          value={String(field.value || '')}
           disabled={disabled || isLoading}
         >
           <FormControl>
@@ -52,14 +41,6 @@ export const LocationSelectField = ({
   />
 );
 
-interface StateSelectFieldProps {
-  form: UseFormReturn<DeclarationFormData>;
-  name: FieldPath<DeclarationFormData>;
-  label: string;
-  states: string[];
-  isLoading: boolean;
-}
-
 export const StateSelectField = ({ form, name, label, states, isLoading }: StateSelectFieldProps) => (
   <LocationSelectField
     form={form}
@@ -70,15 +51,6 @@ export const StateSelectField = ({ form, name, label, states, isLoading }: State
     placeholder="Selecione o estado..."
   />
 );
-
-interface CitySelectFieldProps {
-  form: UseFormReturn<DeclarationFormData>;
-  stateFieldName: FieldPath<DeclarationFormData>;
-  cityFieldName: FieldPath<DeclarationFormData>;
-  label: string;
-  cities: string[];
-  isLoading: boolean;
-}
 
 export const CitySelectField = ({ 
   form, 

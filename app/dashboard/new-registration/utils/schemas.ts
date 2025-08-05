@@ -23,7 +23,7 @@ const personSchema = z.object({
     }, 'CPF deve ter 11 dígitos')
     .refine(cleanCpfForValidation, 'CPF inválido'),
   address: z.string().min(1, 'Endereço é obrigatório'),
-  email: z.string().email('Email inválido'),
+  email: z.email('Email inválido'),
   phone: z.string().min(1, 'Telefone é obrigatório'),
   fatherName: z.string().min(1, 'Nome do pai é obrigatório'),
   motherName: z.string().min(1, 'Nome da mãe é obrigatório'),
@@ -47,9 +47,11 @@ export const declarationFormSchema = z.object({
   pactDate: z.string().optional(),
   pactOffice: z.string().optional(),
   pactBook: z.string().optional(),
+  pactPage: z.string().optional(),
   pactTerm: z.string().optional(),
   firstPerson: personSchema,
   secondPerson: personSchema,
 });
 
+export type PersonData = z.infer<typeof personSchema>;
 export type DeclarationFormData = z.infer<typeof declarationFormSchema>;

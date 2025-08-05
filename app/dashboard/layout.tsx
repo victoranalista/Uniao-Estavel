@@ -62,9 +62,11 @@ const SidebarNavigation = () => (
     <aside className="flex h-full w-14 flex-col border-r bg-background">
       <div className="flex h-14 items-center justify-center border-b px-2">
         <img 
-          src="/logo.png" 
-          alt="Cartório Colorado" 
-          className="h-8 w-8"
+          src="/images/logo_dark_black.png"
+          alt="CC Napoleão"
+          width={32}
+          height={32}
+          className="transition-all group-hover:scale-110 dark:invert"
         />
       </div>
       
@@ -86,7 +88,6 @@ const SidebarNavigation = () => (
 
 const TopBar = ({ onLogout }: { onLogout: () => void }) => {
   const { user, isLoading } = useSession();
-  
   const getUserInitials = (name?: string | null) => {
     if (!name) return 'U';
     return name
@@ -100,7 +101,6 @@ const TopBar = ({ onLogout }: { onLogout: () => void }) => {
   return (
     <header className="flex h-14 items-center justify-between bg-background px-4">
       <h1 className="text-lg font-semibold"></h1>
-      
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -145,7 +145,6 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-
   const handleLogout = useCallback(async () => {
     try {
       await handleSignOut();
@@ -159,10 +158,8 @@ export default function DashboardLayout({
   return (
     <div className="flex h-screen bg-background">
       <SidebarNavigation />
-      
       <div className="flex flex-1 flex-col">
         <TopBar onLogout={handleLogout} />
-        
         <main className="flex-1">
           {children}
         </main>

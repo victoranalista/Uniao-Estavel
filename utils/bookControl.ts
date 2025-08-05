@@ -1,48 +1,43 @@
 import { prisma } from '@/lib/prisma';
 
-interface BookControl {
-  currentBook: number;
-  currentTerm: number;
+interface BookNumbers {
+  book: string;
+  term: string;
 }
 
-const getBookControlFromDB = async (): Promise<BookControl> => {
-  const control = await prisma.bookControl.findFirst();
-  if (!control) {
-    return {
-      currentBook: 1,
-      currentTerm: 203
-    };
-  }
-  return {
-    currentBook: control.currentBook,
-    currentTerm: control.currentTerm
-  };
-};
-
-const updateBookControlInDB = async (control: BookControl): Promise<void> => {
-  await prisma.bookControl.upsert({
-    where: { id: 1 },
-    update: {
-      currentBook: control.currentBook,
-      currentTerm: control.currentTerm
-    },
-    create: {
-      id: 1,
-      currentBook: control.currentBook,
-      currentTerm: control.currentTerm
+const incrementTermAtomic = async () => {
+  const result = await prisma.$transaction(async (tx) => {
+    const control = await tx.bookControl.findFirst();
+    if (!control) {
+      const newControl = await tx.bookControl.create({
+        data: {
+          id: 1,
+          currentBook: 1,
+          currentTerm: 203
+        }
+      });
+      return {
+        book: `UE-${newControl.currentBook}`,
+        term: newControl.currentTerm.toString()
+      };
     }
+    const updatedControl = await tx.bookControl.update({
+      where: { id: control.id },
+      data: {
+        currentTerm: control.currentTerm + 1
+      }
+    });
+    
+    return {
+      book: `UE-${updatedControl.currentBook}`,
+      term: control.currentTerm.toString()
+    };
   });
+  return result;
 };
 
-export const getNextBookNumbers = async (): Promise<{ book: string; term: string }> => {
-  const control = await getBookControlFromDB();
-  const result = {
-    book: `UE-${control.currentBook}`,
-    term: control.currentTerm.toString()
-  };
-  control.currentTerm++;
-  await updateBookControlInDB(control);
-  return result;
+export const getNextBookNumbers = async (): Promise<BookNumbers> => {
+  return await incrementTermAtomic();
 };
 
 export const parseXMLSeals = (xmlContent: string): string[] => {

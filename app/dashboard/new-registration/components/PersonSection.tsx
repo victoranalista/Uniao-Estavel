@@ -4,19 +4,8 @@ import { GenderSelectField, SelectField } from './SelectFields';
 import { StateSelectField, CitySelectField } from './LocationFields';
 import { REGISTRY_TYPES } from '@/utils/constants';
 import { CPF_MASK, PHONE_MASK } from '../utils/constants';
+import { PersonSectionProps, DeclarationFormData } from '../types/types';
 import { UseFormReturn } from 'react-hook-form';
-import { DeclarationFormData } from '../types';
-
-interface PersonSectionProps {
-  form: UseFormReturn<DeclarationFormData>;
-  prefix: 'firstPerson' | 'secondPerson';
-  title: string;
-  icon: React.ReactNode;
-  states: string[];
-  cities: string[];
-  isStatesLoading: boolean;
-  isCitiesLoading: boolean;
-}
 
 const renderPersonalFields = (form: UseFormReturn<DeclarationFormData>, prefix: 'firstPerson' | 'secondPerson') => (
   <>

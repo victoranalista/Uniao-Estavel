@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useCallback, useEffect, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,19 +12,19 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSession } from '@/lib/hooks/use-session';
 import { declarationFormSchema } from '../utils/schemas';
-import { DeclarationFormData, FormSubmissionProps, DeclarationActionResult } from '../types';
+import { DeclarationFormData, FormSubmissionProps, DeclarationActionResult } from '../types/types';
 import { createDeclarationAction } from '../actions/create-declaration';
 import { PersonSection } from './PersonSection';
 import { TextInputField, DateInputField } from './InputFields';
 import { useStates, useFilteredCities } from './useLocationData';
-import { downloadPdf, createFormData } from '../utils/helpers';
+import { downloadPdf } from '../utils/helpers';
 import { PROPERTY_REGIME_OPTIONS, getCurrentDateString } from '../utils/constants';
 
 const getFormDefaults = (initialData?: Partial<DeclarationFormData>, userName?: string): DeclarationFormData => ({
   city: 'Brasília',
   state: 'DF',
   date: initialData?.date || getCurrentDateString(),
-  propertyRegime: initialData?.propertyRegime || 'COMUNHAO_PARCIAL',
+  propertyRegime: (initialData?.propertyRegime as DeclarationFormData['propertyRegime']) || 'COMUNHAO_PARCIAL',
   unionStartDate: initialData?.unionStartDate || '',
   registrarName: userName || '',
   stamp: initialData?.stamp || '',
@@ -82,7 +81,7 @@ const getFormDefaults = (initialData?: Partial<DeclarationFormData>, userName?: 
   },
 });
 
-export const DeclarationForm = ({ declarationId, initialData, onSuccess }: FormSubmissionProps & { initialData?: Partial<DeclarationFormData> }) => {
+export const DeclarationForm = ({ onSubmit, initialData }: FormSubmissionProps) => {
   const [isSubmitting, startTransition] = useTransition();
   const [formError, setFormError] = useState<string | null>(null);
   const { user } = useSession();
@@ -91,51 +90,44 @@ export const DeclarationForm = ({ declarationId, initialData, onSuccess }: FormS
     resolver: zodResolver(declarationFormSchema),
     defaultValues: getFormDefaults(initialData, user?.name || '')
   });
-  
   const firstPersonState = form.watch('firstPerson.birthPlaceState');
   const secondPersonState = form.watch('secondPerson.birthPlaceState');
   const { cities: firstPersonCities, isCitiesLoading: isFirstPersonCitiesLoading } = useFilteredCities(firstPersonState);
   const { cities: secondPersonCities, isCitiesLoading: isSecondPersonCitiesLoading } = useFilteredCities(secondPersonState);
-
   useEffect(() => {
-    if (initialData || user?.name) {
+    if (initialData || user?.name) 
       form.reset(getFormDefaults(initialData, user?.name || ''));
-    }
   }, [initialData, form, user?.name]);
-
   const handleSubmissionSuccess = useCallback((result: DeclarationActionResult) => {
     if (!result.success) {
-      const error = result.error || 'Erro desconhecido';
+      const error = result.message || 'Erro desconhecido';
       toast.error(error);
       return error;
     }
-    
-    const message = declarationId ? 'Declaração atualizada com sucesso!' : 'Declaração criada com sucesso!';
-    toast.success(message);
-    
+    toast.success('Declaração criada com sucesso!');
     if (result.data?.pdfContent && result.data?.filename) {
-      downloadPdf(result.data.pdfContent, result.data.filename);
+      downloadPdf(result.data.pdfContent);
       toast.success('PDF baixado automaticamente!');
     }
-    
-    onSuccess?.();
     return null;
-  }, [declarationId, onSuccess]);
+  }, []);
 
   const processFormSubmission = useCallback(async (formData: DeclarationFormData) => {
     startTransition(async () => {
       setFormError(null);
       try {
-        const result = await createDeclarationAction(createFormData(formData));
+        const result = await createDeclarationAction(formData);
         const error = handleSubmissionSuccess(result);
         setFormError(error);
+        if (result.success && onSubmit)
+          await onSubmit(formData);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Erro ao processar a solicitação';
         setFormError(errorMessage);
         toast.error(errorMessage);
       }
     });
-  }, [handleSubmissionSuccess]);
+  }, [handleSubmissionSuccess, onSubmit]);
 
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8 space-y-8">
@@ -147,14 +139,13 @@ export const DeclarationForm = ({ declarationId, initialData, onSuccess }: FormS
             </div>
           </div>
           <CardTitle className="text-3xl font-semibold">
-            {declarationId ? 'Atualizar Registro' : 'Novo Registro de União Estável'}
+            Novo Registro de União Estável
           </CardTitle>
           <CardDescription className="text-lg mt-2">
-            Preencha os dados para {declarationId ? 'atualizar' : 'gerar'} a declaração
+            Preencha os dados para gerar a declaração
           </CardDescription>
         </CardHeader>
       </Card>
-
       <Form {...form}>
         <form onSubmit={form.handleSubmit(processFormSubmission)} className="space-y-8">
           <Card>
@@ -259,7 +250,7 @@ export const DeclarationForm = ({ declarationId, initialData, onSuccess }: FormS
 
           <div className="flex justify-center pt-4">
             <Button type="submit" disabled={isSubmitting} className="w-full max-w-md" size="lg">
-              {isSubmitting ? 'Processando...' : declarationId ? 'Atualizar Registro' : 'Criar Registro'}
+              {isSubmitting ? 'Processando...' : 'Criar Registro'}
             </Button>
           </div>
         </form>

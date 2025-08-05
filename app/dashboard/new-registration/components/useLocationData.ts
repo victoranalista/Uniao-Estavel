@@ -4,7 +4,6 @@ import { fetchStatesFromIBGE, fetchCitiesFromIBGE } from '../utils/ibge-service'
 export const useStates = () => {
   const [states, setStates] = useState<string[]>([]);
   const [isStatesLoading, setIsStatesLoading] = useState(true);
-
   useEffect(() => {
     const loadStates = async () => {
       setIsStatesLoading(true);
@@ -14,14 +13,12 @@ export const useStates = () => {
     };
     loadStates();
   }, []);
-  
   return { states, isStatesLoading };
 };
 
 export const useFilteredCities = (selectedState: string) => {
   const [cities, setCities] = useState<string[]>([]);
   const [isCitiesLoading, setIsCitiesLoading] = useState(false);
-
   useEffect(() => {
     if (!selectedState) {
       setCities([]);
@@ -35,6 +32,5 @@ export const useFilteredCities = (selectedState: string) => {
     };
     loadCities();
   }, [selectedState]);
-
   return { cities, isCitiesLoading };
 };
