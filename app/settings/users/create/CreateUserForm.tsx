@@ -8,7 +8,7 @@ import { Role, ActivationStatus } from '@prisma/client';
 import usePersonTaxPayerIdAvailability from '@/lib/hooks/usePersonTaxPayerIdAvailability';
 import { validationSchema } from './validationSchema';
 import { toast } from 'sonner';
-import { createUserAction } from './actions';
+import { createUser } from './actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -26,7 +26,6 @@ import {
   FormMessage,
   Form
 } from '@/components/ui/form';
-import { sanitizePassword } from '../security/sanitizePassword';
 import { UserFormValues, Field } from '../types';
 
 export default function CreateUserForm() {
@@ -37,7 +36,6 @@ export default function CreateUserForm() {
     defaultValues: {
       name: '',
       email: '',
-      password: '',
       role: Role.USER,
       status: ActivationStatus.ACTIVE,
       taxpayerId: ''
@@ -85,14 +83,6 @@ export default function CreateUserForm() {
         ]
       }
     ];
-    if (currentRole === Role.ADMIN) {
-      baseFields.splice(2, 0, {
-        name: 'password',
-        label: 'Senha',
-        type: 'password',
-        placeholder: 'Digite a senha'
-      });
-    }
     if (currentRole === Role.ADMIN || currentRole === Role.USER) {
       baseFields.push({
         name: 'taxpayerId',
@@ -106,11 +96,11 @@ export default function CreateUserForm() {
 
   const handleSubmit = async (data: UserFormValues) => {
     try {
-      const userData = validationSchema.parse(data);
-      const result = await createUserAction({
-        ...userData,
-        password: sanitizePassword(userData.role, userData.password)
-      });
+      const userData = {
+        ...validationSchema.parse(data),
+        taxpayerId: data.taxpayerId ?? ''
+      };
+      const result = await createUser(userData);
       if (result && typeof result === 'object' && 'success' in result) {
         if (result.success) {
           toast.success('Usuário criado com sucesso');

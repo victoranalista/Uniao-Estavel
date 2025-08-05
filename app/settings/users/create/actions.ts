@@ -3,14 +3,12 @@ import { cleanTaxpayerId, isValidTaxpayerId, handleActionError } from '@/lib/val
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { Role, ActivationStatus } from '@prisma/client';
-import { hashSync } from 'bcryptjs';
 
 interface UserData {
   name: string;
   email: string;
   taxpayerId: string;
   role: Role;
-  password?: string;
 }
 
 interface ActionResult {
@@ -35,8 +33,7 @@ const prepareUserData = (data: UserData) => ({
       name: data.name.trim(),
       email: data.email.trim().toLowerCase(),
       role: data.role,
-      status: ActivationStatus.ACTIVE,
-      ...(data.password && { password: hashSync(data.password, 12) })
+      status: ActivationStatus.ACTIVE
     }
   }
 });
@@ -76,9 +73,6 @@ export const createUser = async (data: UserData): Promise<ActionResult> => {
   const validation = validateUserData(data);
   if (validation) {
     return { success: false, message: validation };
-  }
-  if (!data.password) {
-    return { success: false, message: 'Senha é obrigatória' };
   }
   try {
     const availabilityError = await checkUserAvailability(data.email, data.taxpayerId);

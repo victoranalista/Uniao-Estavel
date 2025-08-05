@@ -24,45 +24,7 @@ export const validationSchema = z
     }),
     status: z.enum(StatusEnum, {
       error: () => 'Selecione um status válido'
-    }),
-    password: z.string().optional()
-  })
-  .check((ctx) => {
-    const { role, password } = ctx.value;
-    if (role === Role.ADMIN) {
-      if (!password) {
-        ctx.issues.push({
-          code: 'custom',
-          message: 'A senha é obrigatória para administradores',
-          path: ['password'],
-          input: 'string'
-        });
-      } else {
-        if (
-          !/^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-\\\/[\]~`+=;']).+/.test(
-            password
-          )
-        ) {
-          ctx.issues.push({
-            code: 'custom',
-            message:
-              'A senha deve conter ao menos uma letra maiúscula, um número e um caractere especial',
-            path: ['password'],
-            input: 'string'
-          });
-        }
-        if (password.length < 24) {
-          ctx.issues.push({
-            code: 'too_small',
-            minimum: 24,
-            message: 'A senha deve ter no mínimo 24 caracteres',
-            path: ['password'],
-            input: password,
-            origin: 'string'
-          });
-        }
-      }
-    }
+    })
   })
   .transform((data) => {
     const result: EditFormValues = {
@@ -70,10 +32,7 @@ export const validationSchema = z
       name: data.name,
       email: data.email,
       role: data.role,
-      status: data.status,
-      ...(data.role === Role.ADMIN && data.password
-        ? { password: data.password }
-        : {})
+      status: data.status
     };
     return result;
   });

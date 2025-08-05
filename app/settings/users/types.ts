@@ -18,13 +18,12 @@ export interface UserFormValues {
   role: Role;
   status: ActivationStatus;
   taxpayerId?: string;
-  password?: string;
 }
 
 export interface Field {
   name: keyof UserFormValues;
   label: string;
-  type: 'text' | 'email' | 'password' | 'select';
+  type: 'text' | 'email' | 'select';
   placeholder?: string;
   options?: Array<{ value: string; label: string }>;
 }
@@ -40,13 +39,12 @@ export interface EditFormValues {
   role: Role;
   status: ActivationStatus;
   taxpayerId?: string;
-  password?: string;
 }
 
 export interface FieldEdit {
   name: keyof EditFormValues;
   label: string;
-  type: 'text' | 'email' | 'password' | 'select' | 'hidden';
+  type: 'text' | 'email' | 'select' | 'hidden';
   placeholder?: string;
   options?: Array<{ value: string; label: string }>;
 }
@@ -57,7 +55,6 @@ export interface UpdateUserDataInput {
   email: string;
   role: Role;
   status: ActivationStatus;
-  password?: string;
 }
 
 export interface IAvailabilityResponse {
@@ -75,7 +72,6 @@ export interface ICheckResult {
   userId: number;
   name: string;
   email: string;
-  password: string | undefined | null;
   role: Role;
   status: ActivationStatus;
 }

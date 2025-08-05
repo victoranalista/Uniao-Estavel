@@ -25,7 +25,6 @@ import {
   FormMessage,
   Form
 } from '@/components/ui/form';
-import { sanitizePassword } from '../../security/sanitizePassword';
 import { EditFormValues, FieldEdit } from '../../types';
 
 export default function EditUserForm({
@@ -35,10 +34,8 @@ export default function EditUserForm({
 }) {
   const router = useRouter();
   const methods = useForm<EditFormValues>({
-    resolver: zodResolver(validationSchema),    defaultValues: {
-      ...initialValues,
-      password: initialValues.password ?? ''
-    },
+    resolver: zodResolver(validationSchema),
+    defaultValues: initialValues,
     mode: 'onChange'
   });
   const currentRole = useWatch({
@@ -84,24 +81,13 @@ export default function EditUserForm({
         ]
       }
     ];
-    if (currentRole === Role.ADMIN) {
-      baseFields.splice(3, 0, {
-        name: 'password',
-        label: 'Senha',
-        type: 'password',
-        placeholder: 'Digite a senha'
-      });
-    }
     return baseFields;
   }, [currentRole]);
 
   const handleSubmit = async (data: EditFormValues) => {
     try {
       const userData = validationSchema.parse(data) as EditFormValues;
-      const result = await updateUserDataAction({
-        ...userData,
-        password: sanitizePassword(userData.role, userData.password)
-      });
+      const result = await updateUserDataAction(userData);
 
       if (result && typeof result === 'object' && 'success' in result) {
         if (result.success) {
