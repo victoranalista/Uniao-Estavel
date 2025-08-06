@@ -12,14 +12,14 @@ const getPrisma = () => {
           datasourceUrl: `${process.env.POSTGRES_PRISMA_URL}&connection_limit=40&pool_timeout=30`,
           transactionOptions: {
             timeout: 30000,
-            maxWait: 5000,
+            maxWait: 5000
           }
         })
       : new PrismaClient({
           datasourceUrl: `${process.env.POSTGRES_PRISMA_URL}&connection_limit=40&pool_timeout=30`,
           transactionOptions: {
             timeout: 30000,
-            maxWait: 5000,
+            maxWait: 5000
           }
         });
 

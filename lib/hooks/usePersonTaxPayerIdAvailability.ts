@@ -21,22 +21,29 @@ const checkAvailability = async (value: string, role: Role) => {
   return null;
 };
 
-const usePersonTaxPayerIdAvailability = (methods: UseFormReturn<UserFormValues>) => {
-  const { watch, setError, clearErrors, formState: { touchedFields, dirtyFields } } = methods;
+const usePersonTaxPayerIdAvailability = (
+  methods: UseFormReturn<UserFormValues>
+) => {
+  const {
+    watch,
+    setError,
+    clearErrors,
+    formState: { touchedFields, dirtyFields }
+  } = methods;
   const taxpayerIdValue: string = watch('taxpayerId') || '';
   const roleValue = watch('role');
-  
+
   const validate = useCallback(
     debounce(async (val: string, role: Role) => {
       const hasInteracted = touchedFields.taxpayerId || dirtyFields.taxpayerId;
       if (!hasInteracted) return;
-      
+
       const inputError = validateInput(val, hasInteracted);
       if (inputError) {
         setError('taxpayerId', inputError);
         return;
       }
-      
+
       try {
         const availabilityError = await checkAvailability(val, role);
         if (availabilityError) {

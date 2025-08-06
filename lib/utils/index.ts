@@ -1,4 +1,4 @@
-import { validatetaxpayerId } from '@/utils/validators';
+import { validatetaxpayerId } from '@/lib/validators';
 
 export const MASKS = {
   CPF: '999.999.999-99',
@@ -15,7 +15,7 @@ export const PROPERTY_REGIME_OPTIONS = [
   { value: 'COMUNHAO_PARCIAL', label: 'Comunhão Parcial de Bens' },
   { value: 'SEPARACAO_TOTAL', label: 'Separação Total de Bens' },
   { value: 'PARTICIPACAO_FINAL', label: 'Participação Final nos Aquestos' },
-  { value: 'COMUNHAO_UNIVERSAL', label: 'Comunhão Universal de Bens' },
+  { value: 'COMUNHAO_UNIVERSAL', label: 'Comunhão Universal de Bens' }
 ] as const;
 
 export const cleanText = (text: string): string => text.replace(/\D/g, '');
@@ -36,12 +36,13 @@ export const applyMask = (value: string, mask: string): string => {
   return maskedValue;
 };
 
-export const cleanTaxpayerId = (taxpayerId: string): string => cleanText(taxpayerId);
+export const cleanTaxpayerId = (taxpayerId: string): string =>
+  cleanText(taxpayerId);
 
-export const formatTaxpayerId = (taxpayerId: string): string => 
+export const formatTaxpayerId = (taxpayerId: string): string =>
   applyMask(taxpayerId, MASKS.CPF);
 
-export const formatPhoneNumber = (phone: string): string => 
+export const formatPhoneNumber = (phone: string): string =>
   applyMask(phone, MASKS.PHONE);
 
 export const isValidTaxpayerId = (taxpayerId: string): boolean => {
@@ -49,25 +50,29 @@ export const isValidTaxpayerId = (taxpayerId: string): boolean => {
   return cleanId.length === 11 && validatetaxpayerId(cleanId);
 };
 
-export const getCurrentDateString = (): string => 
+export const getCurrentDateString = (): string =>
   new Date().toISOString().split('T')[0];
 
-export const formatDate = (dateString: string): string => 
+export const formatDate = (dateString: string): string =>
   new Date(dateString).toLocaleDateString('pt-BR');
 
 export const formatPropertyRegime = (regime: string): string => {
   const regimeMap: Record<string, string> = {
-    'COMUNHAO_PARCIAL': 'Comunhão Parcial de Bens',
-    'SEPARACAO_TOTAL': 'Separação Total de Bens',
-    'PARTICIPACAO_FINAL': 'Participação Final nos Aquestos',
-    'COMUNHAO_UNIVERSAL': 'Comunhão Universal de Bens',
+    COMUNHAO_PARCIAL: 'Comunhão Parcial de Bens',
+    SEPARACAO_TOTAL: 'Separação Total de Bens',
+    PARTICIPACAO_FINAL: 'Participação Final nos Aquestos',
+    COMUNHAO_UNIVERSAL: 'Comunhão Universal de Bens'
   };
   return regimeMap[regime] || regime;
 };
 
-export const validateSearchParams = (params: { name?: string; taxpayerId?: string }): boolean => {
+export const validateSearchParams = (params: {
+  name?: string;
+  taxpayerId?: string;
+}): boolean => {
   const hasName = params.name && params.name.trim().length >= 3;
-  const hasTaxpayerId = params.taxpayerId && isValidTaxpayerId(params.taxpayerId);
+  const hasTaxpayerId =
+    params.taxpayerId && isValidTaxpayerId(params.taxpayerId);
   return !!(hasName || hasTaxpayerId);
 };
 

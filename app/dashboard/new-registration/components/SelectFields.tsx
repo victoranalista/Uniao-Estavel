@@ -1,31 +1,52 @@
-import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useGenderState } from './useGenderState';
-import { 
+import {
   getNationalitiesByGender,
   getCivilStatusByGender,
-  REGISTRY_OFFICERS 
+  REGISTRY_OFFICERS
 } from '@/utils/constants';
 import { UseFormReturn, FieldPath } from 'react-hook-form';
 import { DeclarationFormData } from '../utils/schemas';
 import { SelectFieldProps, GenderSelectFieldProps } from '../types/types';
 
-export const SelectField = ({ form, name, label, options, placeholder = "Selecione..." }: SelectFieldProps) => (
+export const SelectField = ({
+  form,
+  name,
+  label,
+  options,
+  placeholder = 'Selecione...'
+}: SelectFieldProps) => (
   <FormField
     control={form.control}
     name={name}
     render={({ field }) => (
       <FormItem>
         <FormLabel>{label}</FormLabel>
-        <Select onValueChange={field.onChange} value={String(field.value || '')}>
+        <Select
+          onValueChange={field.onChange}
+          value={String(field.value || '')}
+        >
           <FormControl>
             <SelectTrigger>
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
           </FormControl>
           <SelectContent>
-            {options.map(option => (
+            {options.map((option) => (
               <SelectItem key={option} value={option}>
                 {option}
               </SelectItem>
@@ -38,16 +59,22 @@ export const SelectField = ({ form, name, label, options, placeholder = "Selecio
   />
 );
 
-const getFieldOptions = (gender: 'M' | 'F', fieldType: 'nationality' | 'civilStatus'): readonly string[] =>
-  fieldType === 'nationality' ? getNationalitiesByGender(gender) : getCivilStatusByGender(gender);
+const getFieldOptions = (
+  gender: 'M' | 'F',
+  fieldType: 'nationality' | 'civilStatus'
+): readonly string[] =>
+  fieldType === 'nationality'
+    ? getNationalitiesByGender(gender)
+    : getCivilStatusByGender(gender);
 
-const getNewGender = (currentGender: 'M' | 'F'): 'M' | 'F' => currentGender === 'M' ? 'F' : 'M';
+const getNewGender = (currentGender: 'M' | 'F'): 'M' | 'F' =>
+  currentGender === 'M' ? 'F' : 'M';
 
 const updateFieldValue = (
-  form: UseFormReturn<DeclarationFormData>, 
-  fieldName: FieldPath<DeclarationFormData>, 
-  currentOptions: readonly string[], 
-  newOptions: readonly string[], 
+  form: UseFormReturn<DeclarationFormData>,
+  fieldName: FieldPath<DeclarationFormData>,
+  currentOptions: readonly string[],
+  newOptions: readonly string[],
   currentValue: string
 ) => {
   const currentIndex = currentOptions.indexOf(currentValue);
@@ -58,7 +85,12 @@ const updateFieldValue = (
   }
 };
 
-export const GenderSelectField = ({ form, prefix, label, fieldType }: GenderSelectFieldProps) => {
+export const GenderSelectField = ({
+  form,
+  prefix,
+  label,
+  fieldType
+}: GenderSelectFieldProps) => {
   const isSecondPerson = prefix === 'secondPerson';
   const { gender, toggleGender } = useGenderState(isSecondPerson ? 'F' : 'M');
   const options = getFieldOptions(gender, fieldType);
@@ -69,7 +101,13 @@ export const GenderSelectField = ({ form, prefix, label, fieldType }: GenderSele
     if (!currentValue) return;
     const currentOptions = getFieldOptions(gender, fieldType);
     const newOptions = getFieldOptions(getNewGender(gender), fieldType);
-    updateFieldValue(form, fieldName, currentOptions, newOptions, String(currentValue));
+    updateFieldValue(
+      form,
+      fieldName,
+      currentOptions,
+      newOptions,
+      String(currentValue)
+    );
   };
 
   return (
@@ -89,14 +127,19 @@ export const GenderSelectField = ({ form, prefix, label, fieldType }: GenderSele
               {gender === 'M' ? 'Masculino' : 'Feminino'}
             </Badge>
           </FormLabel>
-          <Select onValueChange={field.onChange} value={String(field.value || '')}>
+          <Select
+            onValueChange={field.onChange}
+            value={String(field.value || '')}
+          >
             <FormControl>
               <SelectTrigger>
-                <SelectValue placeholder={`Selecione ${fieldType === 'nationality' ? 'a nacionalidade' : 'o estado civil'}...`} />
+                <SelectValue
+                  placeholder={`Selecione ${fieldType === 'nationality' ? 'a nacionalidade' : 'o estado civil'}...`}
+                />
               </SelectTrigger>
             </FormControl>
             <SelectContent>
-              {options.map(option => (
+              {options.map((option) => (
                 <SelectItem key={option} value={option}>
                   {option}
                 </SelectItem>
@@ -110,7 +153,11 @@ export const GenderSelectField = ({ form, prefix, label, fieldType }: GenderSele
   );
 };
 
-export const RegistrarSelectField = ({ form, name, label }: Omit<SelectFieldProps, 'options'>) => (
+export const RegistrarSelectField = ({
+  form,
+  name,
+  label
+}: Omit<SelectFieldProps, 'options'>) => (
   <SelectField
     form={form}
     name={name}

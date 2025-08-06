@@ -11,32 +11,32 @@ export async function updateUserDataAction(data: UpdateUserDataInput) {
     await requireSession([Role.ADMIN]);
     const validBody = await validationSchema.parse(data);
     if (!validBody) return { success: false, message: 'Invalid data type' };
-    
+
     const { id: userHistoryId } = validBody;
     try {
       await prisma.$transaction(async (tx) => {
         const check = await checker(tx, userHistoryId);
         if (!check) throw new Error('User not found');
-        
+
         const dataModified =
           check.name !== validBody.name ||
           check.email !== validBody.email ||
           check.role !== validBody.role ||
           check.status !== validBody.status;
-        
+
         if (!dataModified) throw new Error('No data was modified');
-        
+
         const existingUserHistory = await tx.userHistory.findUnique({
           where: { id: userHistoryId }
         });
         if (!existingUserHistory)
           throw new Error('UserHistory record not found');
-        
+
         const existingUser = await tx.user.findUnique({
           where: { id: check.userId }
         });
         if (!existingUser) throw new Error('User record not found');
-        
+
         await Promise.all([
           tx.userHistory.update({
             where: { id: userHistoryId },

@@ -27,7 +27,7 @@ const incrementTermAtomic = async () => {
         currentTerm: control.currentTerm + 1
       }
     });
-    
+
     return {
       book: `UE-${updatedControl.currentBook}`,
       term: control.currentTerm.toString()
@@ -44,5 +44,5 @@ export const parseXMLSeals = (xmlContent: string): string[] => {
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(xmlContent, 'text/xml');
   const selos = xmlDoc.getElementsByTagName('selo');
-  return Array.from(selos).map(selo => selo.getAttribute('id') || '');
+  return Array.from(selos).map((selo) => selo.getAttribute('id') || '');
 };

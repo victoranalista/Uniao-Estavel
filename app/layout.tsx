@@ -5,7 +5,7 @@ import Providers from './providers';
 
 export const metadata = {
   title: 'CC Napoleão',
-  description: 'Sistema de Registro de União Estável',
+  description: 'Sistema de Registro de União Estável'
 };
 
 export default function RootLayout({

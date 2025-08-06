@@ -24,8 +24,8 @@ export const createAuditLog = async (data: AuditData) => {
       newValue: data.newValue ? JSON.stringify(data.newValue) : null,
       userId: data.userId,
       userName: data.userName,
-      metadata: data.metadata ? JSON.stringify(data.metadata) : undefined,
-    },
+      metadata: data.metadata ? JSON.stringify(data.metadata) : undefined
+    }
   });
 };
 
@@ -37,17 +37,21 @@ export const auditFieldChanges = async (
   userId?: string,
   userName?: string
 ) => {
-  const changes = Object.keys(newData).filter(key => oldData[key] !== newData[key]);
-  const auditPromises = changes.map(field => createAuditLog({
-    tableName,
-    recordId,
-    operation: AuditOperation.UPDATE,
-    fieldName: field,
-    oldValue: String(oldData[field] ?? ''),
-    newValue: String(newData[field] ?? ''),
-    userId,
-    userName,
-  }));
+  const changes = Object.keys(newData).filter(
+    (key) => oldData[key] !== newData[key]
+  );
+  const auditPromises = changes.map((field) =>
+    createAuditLog({
+      tableName,
+      recordId,
+      operation: AuditOperation.UPDATE,
+      fieldName: field,
+      oldValue: String(oldData[field] ?? ''),
+      newValue: String(newData[field] ?? ''),
+      userId,
+      userName
+    })
+  );
   await Promise.all(auditPromises);
 };
 
@@ -62,13 +66,13 @@ export const archiveRecord = async (
     recordId,
     operation: AuditOperation.ARCHIVE,
     userId,
-    userName,
+    userName
   });
 };
 
 export const getAuditHistory = async (tableName: string, recordId: string) => {
   return await prisma.auditLog.findMany({
     where: { tableName, recordId },
-    orderBy: { timestamp: 'desc' },
+    orderBy: { timestamp: 'desc' }
   });
 };

@@ -27,9 +27,11 @@ const validateFormat = (cleanId: string): IAvailabilityResponse => {
   return { available: true };
 };
 
-const checkExistence = async (cleanId: string): Promise<IAvailabilityResponse> => {
+const checkExistence = async (
+  cleanId: string
+): Promise<IAvailabilityResponse> => {
   const exists = await prisma.user.findFirst({
-    where: { 
+    where: {
       taxpayerId: cleanId
     },
     select: { id: true }

@@ -1,21 +1,29 @@
-"use client";
+'use client';
 import { useRouter } from 'next/navigation';
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Home, LogOut, Settings, User, FileText, Plus, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  Home,
+  LogOut,
+  Settings,
+  User,
+  FileText,
+  Plus,
+  RefreshCw
+} from 'lucide-react';
 import { useCallback } from 'react';
-import { NavItem } from "../settings/nav-item";
-import { useSession } from "@/lib/hooks/use-session";
-import { handleSignOut } from "../login/actions";
+import { NavItem } from '../settings/nav-item';
+import { useSession } from '@/lib/hooks/use-session';
+import { handleSignOut } from '../login/actions';
 
 interface NavigationItem {
   id: string;
@@ -61,7 +69,7 @@ const SidebarNavigation = () => (
   <TooltipProvider>
     <aside className="flex h-full w-14 flex-col border-r bg-background">
       <div className="flex h-14 items-center justify-center border-b px-2">
-        <img 
+        <img
           src="/images/logo_dark_black.png"
           alt="CC Napoleão"
           width={32}
@@ -69,7 +77,7 @@ const SidebarNavigation = () => (
           className="transition-all group-hover:scale-110 dark:invert"
         />
       </div>
-      
+
       <nav className="flex flex-1 flex-col items-center gap-2 p-2">
         {NAVIGATION_ITEMS.map((item) => (
           <NavItem
@@ -92,7 +100,7 @@ const TopBar = ({ onLogout }: { onLogout: () => void }) => {
     if (!name) return 'U';
     return name
       .split(' ')
-      .map(word => word.charAt(0))
+      .map((word) => word.charAt(0))
       .join('')
       .toUpperCase()
       .slice(0, 2);
@@ -105,9 +113,16 @@ const TopBar = ({ onLogout }: { onLogout: () => void }) => {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-8 w-8 rounded-full">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={user?.image || "/placeholder-user.jpg"} alt={user?.name || "Usuário"} />
+              <AvatarImage
+                src={user?.image || '/placeholder-user.jpg'}
+                alt={user?.name || 'Usuário'}
+              />
               <AvatarFallback>
-                {isLoading ? <User className="h-4 w-4" /> : getUserInitials(user?.name)}
+                {isLoading ? (
+                  <User className="h-4 w-4" />
+                ) : (
+                  getUserInitials(user?.name)
+                )}
               </AvatarFallback>
             </Avatar>
           </Button>
@@ -140,7 +155,7 @@ const TopBar = ({ onLogout }: { onLogout: () => void }) => {
 };
 
 export default function DashboardLayout({
-  children,
+  children
 }: {
   children: React.ReactNode;
 }) {
@@ -160,9 +175,7 @@ export default function DashboardLayout({
       <SidebarNavigation />
       <div className="flex flex-1 flex-col">
         <TopBar onLogout={handleLogout} />
-        <main className="flex-1">
-          {children}
-        </main>
+        <main className="flex-1">{children}</main>
       </div>
     </div>
   );

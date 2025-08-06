@@ -35,11 +35,14 @@ const checker = async (
       }
     }
   });
-  
-  if (!userHistoryData?.user?.versions[0] || userHistoryData.user.versions[0].id !== userHistoryId) {
+
+  if (
+    !userHistoryData?.user?.versions[0] ||
+    userHistoryData.user.versions[0].id !== userHistoryId
+  ) {
     return false;
   }
-  
+
   return {
     id: userHistoryData.id,
     version: userHistoryData.version,

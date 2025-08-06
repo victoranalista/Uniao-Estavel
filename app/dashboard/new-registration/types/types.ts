@@ -27,7 +27,7 @@ export interface MaskedInputProps {
 
 export interface DeclarationActionResult {
   success: boolean;
-  data?: { 
+  data?: {
     id: string;
     pdfContent?: string;
     filename?: string;

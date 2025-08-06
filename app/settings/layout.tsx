@@ -61,7 +61,7 @@ function DesktopNav(props: { role?: string }) {
           height={32}
           className="transition-all group-hover:scale-110 dark:invert"
         ></Image>
-          <NavItem
+        <NavItem
           href={labelsAndLinks.home.link}
           label={labelsAndLinks.home.label}
         >

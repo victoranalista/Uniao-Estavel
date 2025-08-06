@@ -1,4 +1,7 @@
-export const downloadPdf = (base64Content: string, filename = 'declaracao.pdf'): void => {
+export const downloadPdf = (
+  base64Content: string,
+  filename = 'declaracao.pdf'
+): void => {
   const byteCharacters = atob(base64Content);
   const byteNumbers = new Array(byteCharacters.length);
   for (let i = 0; i < byteCharacters.length; i++) {

@@ -1,15 +1,31 @@
-import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LocationSelectFieldProps, StateSelectFieldProps, CitySelectFieldProps } from '../types/types';
+import {
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
+import {
+  LocationSelectFieldProps,
+  StateSelectFieldProps,
+  CitySelectFieldProps
+} from '../types/types';
 
-export const LocationSelectField = ({ 
-  form, 
-  name, 
-  label, 
-  options, 
-  isLoading, 
-  disabled = false, 
-  placeholder 
+export const LocationSelectField = ({
+  form,
+  name,
+  label,
+  options,
+  isLoading,
+  disabled = false,
+  placeholder
 }: LocationSelectFieldProps) => (
   <FormField
     control={form.control}
@@ -24,11 +40,13 @@ export const LocationSelectField = ({
         >
           <FormControl>
             <SelectTrigger>
-              <SelectValue placeholder={isLoading ? "Carregando..." : placeholder} />
+              <SelectValue
+                placeholder={isLoading ? 'Carregando...' : placeholder}
+              />
             </SelectTrigger>
           </FormControl>
           <SelectContent>
-            {options.map(option => (
+            {options.map((option) => (
               <SelectItem key={option} value={option}>
                 {option}
               </SelectItem>
@@ -41,7 +59,13 @@ export const LocationSelectField = ({
   />
 );
 
-export const StateSelectField = ({ form, name, label, states, isLoading }: StateSelectFieldProps) => (
+export const StateSelectField = ({
+  form,
+  name,
+  label,
+  states,
+  isLoading
+}: StateSelectFieldProps) => (
   <LocationSelectField
     form={form}
     name={name}
@@ -52,16 +76,16 @@ export const StateSelectField = ({ form, name, label, states, isLoading }: State
   />
 );
 
-export const CitySelectField = ({ 
-  form, 
-  stateFieldName, 
-  cityFieldName, 
-  label, 
-  cities, 
-  isLoading 
+export const CitySelectField = ({
+  form,
+  stateFieldName,
+  cityFieldName,
+  label,
+  cities,
+  isLoading
 }: CitySelectFieldProps) => {
   const selectedState = form.watch(stateFieldName);
-  
+
   return (
     <LocationSelectField
       form={form}
@@ -71,9 +95,11 @@ export const CitySelectField = ({
       isLoading={isLoading}
       disabled={!selectedState}
       placeholder={
-        isLoading ? "Carregando..." :
-          selectedState ? "Selecione a cidade..." :
-            "Selecione primeiro o estado"
+        isLoading
+          ? 'Carregando...'
+          : selectedState
+            ? 'Selecione a cidade...'
+            : 'Selecione primeiro o estado'
       }
     />
   );

@@ -16,23 +16,51 @@ export const fetchStatesFromIBGE = async (): Promise<string[]> => {
     const response = await fetch(`${IBGE_BASE_URL}/estados?orderBy=nome`);
     if (!response.ok) throw new Error('Failed to fetch states');
     const states: IBGEState[] = await response.json();
-    return states.map(state => state.sigla);
+    return states.map((state) => state.sigla);
   } catch (error) {
     console.error('Error fetching states from IBGE:', error);
     return [
-      'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
-      'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
-      'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+      'AC',
+      'AL',
+      'AP',
+      'AM',
+      'BA',
+      'CE',
+      'DF',
+      'ES',
+      'GO',
+      'MA',
+      'MT',
+      'MS',
+      'MG',
+      'PA',
+      'PB',
+      'PR',
+      'PE',
+      'PI',
+      'RJ',
+      'RN',
+      'RS',
+      'RO',
+      'RR',
+      'SC',
+      'SP',
+      'SE',
+      'TO'
     ];
   }
 };
 
-export const fetchCitiesFromIBGE = async (stateCode: string): Promise<string[]> => {
+export const fetchCitiesFromIBGE = async (
+  stateCode: string
+): Promise<string[]> => {
   try {
-    const response = await fetch(`${IBGE_BASE_URL}/estados/${stateCode}/municipios?orderBy=nome`);
+    const response = await fetch(
+      `${IBGE_BASE_URL}/estados/${stateCode}/municipios?orderBy=nome`
+    );
     if (!response.ok) throw new Error('Failed to fetch cities');
     const cities: IBGECity[] = await response.json();
-    return cities.map(city => city.nome);
+    return cities.map((city) => city.nome);
   } catch (error) {
     console.error('Error fetching cities from IBGE:', error);
     return [];

@@ -18,7 +18,8 @@ const validatetaxpayerId = (taxpayerId: string): boolean => {
   return digit === parseInt(cleanTaxId.charAt(10));
 };
 
-const cleanTaxpayerId = (taxpayerId: string): string => taxpayerId.replace(/\D/g, '');
+const cleanTaxpayerId = (taxpayerId: string): string =>
+  taxpayerId.replace(/\D/g, '');
 
 const isValidTaxpayerId = (taxpayerId: string): boolean => {
   const cleanId = cleanTaxpayerId(taxpayerId);
@@ -71,4 +72,11 @@ const handleActionError = (error: unknown): ErrorResponse => ({
 });
 
 export * from '@/lib/utils';
-export { validatetaxpayerId, cleanTaxpayerId, isValidTaxpayerId, isValidtaxpayerIdOrCnpj, validateCnpj, handleActionError };
+export {
+  validatetaxpayerId,
+  cleanTaxpayerId,
+  isValidTaxpayerId,
+  isValidtaxpayerIdOrCnpj,
+  validateCnpj,
+  handleActionError
+};

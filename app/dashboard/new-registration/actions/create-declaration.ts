@@ -48,34 +48,43 @@ interface DeclarationFormData {
 
 interface CreateResult {
   success: boolean;
-  data?: { 
-    id: string; 
-    pdfContent?: string; 
-    filename?: string; 
-    book?: string; 
-    term?: string; 
+  data?: {
+    id: string;
+    pdfContent?: string;
+    filename?: string;
+    book?: string;
+    term?: string;
   };
   message?: string;
 }
 
 const validateRequiredFields = (data: DeclarationFormData): string | null => {
-  if (!data.firstPerson.name?.trim()) return 'Nome do primeiro declarante é obrigatório';
-  if (!data.firstPerson.taxpayerId?.trim()) return 'CPF do primeiro declarante é obrigatório';
-  if (!data.firstPerson.birthDate?.trim()) return 'Data de nascimento do primeiro declarante é obrigatória';
-  if (!data.secondPerson.name?.trim()) return 'Nome do segundo declarante é obrigatório';
-  if (!data.secondPerson.taxpayerId?.trim()) return 'CPF do segundo declarante é obrigatório';
-  if (!data.secondPerson.birthDate?.trim()) return 'Data de nascimento do segundo declarante é obrigatória';
-  if (!data.unionStartDate?.trim()) return 'Data de início da união é obrigatória';
+  if (!data.firstPerson.name?.trim())
+    return 'Nome do primeiro declarante é obrigatório';
+  if (!data.firstPerson.taxpayerId?.trim())
+    return 'CPF do primeiro declarante é obrigatório';
+  if (!data.firstPerson.birthDate?.trim())
+    return 'Data de nascimento do primeiro declarante é obrigatória';
+  if (!data.secondPerson.name?.trim())
+    return 'Nome do segundo declarante é obrigatório';
+  if (!data.secondPerson.taxpayerId?.trim())
+    return 'CPF do segundo declarante é obrigatório';
+  if (!data.secondPerson.birthDate?.trim())
+    return 'Data de nascimento do segundo declarante é obrigatória';
+  if (!data.unionStartDate?.trim())
+    return 'Data de início da união é obrigatória';
   return null;
 };
 
 const validateTaxpayerIds = (data: DeclarationFormData): string | null => {
-  if (!isValidTaxpayerId(data.firstPerson.taxpayerId)) return 'CPF do primeiro declarante inválido';
-  if (!isValidTaxpayerId(data.secondPerson.taxpayerId)) return 'CPF do segundo declarante inválido';
+  if (!isValidTaxpayerId(data.firstPerson.taxpayerId))
+    return 'CPF do primeiro declarante inválido';
+  if (!isValidTaxpayerId(data.secondPerson.taxpayerId))
+    return 'CPF do segundo declarante inválido';
   return null;
 };
 
-const createBirthPlace = (person: PersonData): string => 
+const createBirthPlace = (person: PersonData): string =>
   `${person.birthPlaceCity}/${person.birthPlaceState}`;
 
 const formatPdfData = (data: DeclarationFormData) => ({
@@ -100,7 +109,10 @@ const formatPdfData = (data: DeclarationFormData) => ({
   }
 });
 
-const createDeclarationRecord = async (data: DeclarationFormData, bookNumbers: { book: string; term: string }) => {
+const createDeclarationRecord = async (
+  data: DeclarationFormData,
+  bookNumbers: { book: string; term: string }
+) => {
   return await prisma.declaration.create({
     data: {
       status: 'ACTIVE',
@@ -135,34 +147,40 @@ const createDeclarationRecord = async (data: DeclarationFormData, bookNumbers: {
   });
 };
 
-const handlePdfGeneration = async (pdfData: ReturnType<typeof formatPdfData>, bookNumbers: { book: string; term: string }) => {
+const handlePdfGeneration = async (
+  pdfData: ReturnType<typeof formatPdfData>,
+  bookNumbers: { book: string; term: string }
+) => {
   const pdfResult = await generatePdfAction(pdfData, bookNumbers);
   if (!pdfResult.success) {
-    const errorMessage = 'error' in pdfResult ? pdfResult.error : 'Erro ao gerar PDF';
+    const errorMessage =
+      'error' in pdfResult ? pdfResult.error : 'Erro ao gerar PDF';
     return { success: false as const, error: errorMessage };
   }
-  if ('pdfContent' in pdfResult && 'filename' in pdfResult) 
-    return { 
-      success: true as const, 
-      pdfContent: pdfResult.pdfContent, 
-      filename: pdfResult.filename 
+  if ('pdfContent' in pdfResult && 'filename' in pdfResult)
+    return {
+      success: true as const,
+      pdfContent: pdfResult.pdfContent,
+      filename: pdfResult.filename
     };
   return { success: false as const, error: 'Dados do PDF incompletos' };
 };
 
-export const createDeclarationAction = async (data: DeclarationFormData): Promise<CreateResult> => {
+export const createDeclarationAction = async (
+  data: DeclarationFormData
+): Promise<CreateResult> => {
   const session = await auth();
   if (!session?.user) return { success: false, message: 'Sessão inválida' };
   const fieldValidation = validateRequiredFields(data);
   if (fieldValidation) return { success: false, message: fieldValidation };
   const taxpayerIdValidation = validateTaxpayerIds(data);
-  if (taxpayerIdValidation) return { success: false, message: taxpayerIdValidation };
+  if (taxpayerIdValidation)
+    return { success: false, message: taxpayerIdValidation };
   try {
     const bookNumbers = await getNextBookNumbers();
     const pdfData = formatPdfData(data);
     const pdfResult = await handlePdfGeneration(pdfData, bookNumbers);
-    if (!pdfResult.success) 
-      return { success: false, message: pdfResult.error };
+    if (!pdfResult.success) return { success: false, message: pdfResult.error };
     const declaration = await createDeclarationRecord(data, bookNumbers);
     return {
       success: true,
@@ -175,9 +193,10 @@ export const createDeclarationAction = async (data: DeclarationFormData): Promis
       }
     };
   } catch (error) {
-    return { 
-      success: false, 
-      message: error instanceof Error ? error.message : 'Erro interno do servidor' 
+    return {
+      success: false,
+      message:
+        error instanceof Error ? error.message : 'Erro interno do servidor'
     };
   }
 };

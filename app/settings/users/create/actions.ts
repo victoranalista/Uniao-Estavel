@@ -1,5 +1,9 @@
 'use server';
-import { cleanTaxpayerId, isValidTaxpayerId, handleActionError } from '@/lib/validators';
+import {
+  cleanTaxpayerId,
+  isValidTaxpayerId,
+  handleActionError
+} from '@/lib/validators';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { Role, ActivationStatus } from '@prisma/client';
@@ -38,11 +42,15 @@ const prepareUserData = (data: UserData) => ({
   }
 });
 
-const checkUserAvailability = async (email: string, taxpayerId: string, excludeId?: number) => {
+const checkUserAvailability = async (
+  email: string,
+  taxpayerId: string,
+  excludeId?: number
+) => {
   const cleanId = cleanTaxpayerId(taxpayerId);
   const [existingEmail, existingTaxpayerId] = await Promise.all([
     prisma.userHistory.findFirst({
-      where: { 
+      where: {
         email: email.toLowerCase(),
         status: ActivationStatus.ACTIVE,
         archivedAt: null,
@@ -51,7 +59,7 @@ const checkUserAvailability = async (email: string, taxpayerId: string, excludeI
       select: { id: true }
     }),
     prisma.user.findFirst({
-      where: { 
+      where: {
         taxpayerId: cleanId,
         status: ActivationStatus.ACTIVE,
         archivedAt: null,
@@ -75,7 +83,10 @@ export const createUser = async (data: UserData): Promise<ActionResult> => {
     return { success: false, message: validation };
   }
   try {
-    const availabilityError = await checkUserAvailability(data.email, data.taxpayerId);
+    const availabilityError = await checkUserAvailability(
+      data.email,
+      data.taxpayerId
+    );
     if (availabilityError) {
       return { success: false, message: availabilityError };
     }

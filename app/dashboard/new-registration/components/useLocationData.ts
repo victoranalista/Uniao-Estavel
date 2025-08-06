@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { fetchStatesFromIBGE, fetchCitiesFromIBGE } from '../utils/ibge-service';
+import {
+  fetchStatesFromIBGE,
+  fetchCitiesFromIBGE
+} from '../utils/ibge-service';
 
 export const useStates = () => {
   const [states, setStates] = useState<string[]>([]);

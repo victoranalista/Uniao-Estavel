@@ -1,4 +1,9 @@
-import { AcuityClient, AcuityFormField, MappedClient, AcuityApiResponse } from '../types/acuity';
+import {
+  AcuityClient,
+  AcuityFormField,
+  MappedClient,
+  AcuityApiResponse
+} from '../types/acuity';
 
 export class AcuityError extends Error {
   constructor(
@@ -20,7 +25,8 @@ export class AcuityService {
   private constructor() {
     const userId = process.env.ACUITY_USER_ID;
     const apiKey = process.env.ACUITY_API_KEY;
-    const baseUrl = process.env.ACUITY_API_BASE_URL || 'https://acuityscheduling.com/api/v1';
+    const baseUrl =
+      process.env.ACUITY_API_BASE_URL || 'https://acuityscheduling.com/api/v1';
 
     if (!userId || !apiKey) {
       throw new AcuityError('Missing Acuity credentials', 500);
@@ -38,7 +44,7 @@ export class AcuityService {
   }
 
   private getFieldValue(fields: AcuityFormField[], key: string): string {
-    const field = fields.find(f => f.fieldID === key);
+    const field = fields.find((f) => f.fieldID === key);
     if (!field) {
       console.warn(`Field ${key} not found in Acuity form data`);
       return '';
@@ -46,14 +52,17 @@ export class AcuityService {
     return field.value;
   }
 
-  private async fetchWithAuth(endpoint: string, options: RequestInit = {}): Promise<AcuityApiResponse> {
+  private async fetchWithAuth(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<AcuityApiResponse> {
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
         headers: {
-          'Authorization': `Basic ${this.auth}`,
+          Authorization: `Basic ${this.auth}`,
           'Content-Type': 'application/json',
-          ...options.headers,
+          ...options.headers
         }
       });
 
@@ -70,7 +79,7 @@ export class AcuityService {
       return { data, statusCode: response.status };
     } catch (error) {
       if (error instanceof AcuityError) throw error;
-      
+
       throw new AcuityError(
         'Failed to communicate with Acuity API',
         500,
@@ -81,7 +90,9 @@ export class AcuityService {
 
   public async getClients(search?: string): Promise<AcuityClient[]> {
     try {
-      const endpoint = search ? `/clients?search=${encodeURIComponent(search)}` : '/clients';
+      const endpoint = search
+        ? `/clients?search=${encodeURIComponent(search)}`
+        : '/clients';
       const response = await this.fetchWithAuth(endpoint);
       return response.data as AcuityClient[];
     } catch (error) {
@@ -125,10 +136,19 @@ export class AcuityService {
           firstPerson: {
             name: this.getFieldValue(fields, 'first_person_name'),
             nationality: this.getFieldValue(fields, 'first_person_nationality'),
-            civilStatus: this.getFieldValue(fields, 'first_person_civil_status'),
+            civilStatus: this.getFieldValue(
+              fields,
+              'first_person_civil_status'
+            ),
             birthDate: this.getFieldValue(fields, 'first_person_birth_date'),
-            birthPlaceState: this.getFieldValue(fields, 'first_person_birth_place_state'),
-            birthPlaceCity: this.getFieldValue(fields, 'first_person_birth_place_city'),
+            birthPlaceState: this.getFieldValue(
+              fields,
+              'first_person_birth_place_state'
+            ),
+            birthPlaceCity: this.getFieldValue(
+              fields,
+              'first_person_birth_place_city'
+            ),
             profession: this.getFieldValue(fields, 'first_person_profession'),
             rg: this.getFieldValue(fields, 'first_person_rg'),
             taxpayerId: this.getFieldValue(fields, 'first_person_taxpayerId'),
@@ -137,18 +157,42 @@ export class AcuityService {
             phone: this.getFieldValue(fields, 'first_person_phone'),
             fatherName: this.getFieldValue(fields, 'first_person_father_name'),
             motherName: this.getFieldValue(fields, 'first_person_mother_name'),
-            registryOffice: this.getFieldValue(fields, 'first_person_registry_office'),
-            registryBook: this.getFieldValue(fields, 'first_person_registry_book'),
-            registryPage: this.getFieldValue(fields, 'first_person_registry_page'),
-            registryTerm: this.getFieldValue(fields, 'first_person_registry_term')
+            registryOffice: this.getFieldValue(
+              fields,
+              'first_person_registry_office'
+            ),
+            registryBook: this.getFieldValue(
+              fields,
+              'first_person_registry_book'
+            ),
+            registryPage: this.getFieldValue(
+              fields,
+              'first_person_registry_page'
+            ),
+            registryTerm: this.getFieldValue(
+              fields,
+              'first_person_registry_term'
+            )
           },
           secondPerson: {
             name: this.getFieldValue(fields, 'second_person_name'),
-            nationality: this.getFieldValue(fields, 'second_person_nationality'),
-            civilStatus: this.getFieldValue(fields, 'second_person_civil_status'),
+            nationality: this.getFieldValue(
+              fields,
+              'second_person_nationality'
+            ),
+            civilStatus: this.getFieldValue(
+              fields,
+              'second_person_civil_status'
+            ),
             birthDate: this.getFieldValue(fields, 'second_person_birth_date'),
-            birthPlaceState: this.getFieldValue(fields, 'second_person_birth_place_state'),
-            birthPlaceCity: this.getFieldValue(fields, 'second_person_birth_place_city'),
+            birthPlaceState: this.getFieldValue(
+              fields,
+              'second_person_birth_place_state'
+            ),
+            birthPlaceCity: this.getFieldValue(
+              fields,
+              'second_person_birth_place_city'
+            ),
             profession: this.getFieldValue(fields, 'second_person_profession'),
             rg: this.getFieldValue(fields, 'second_person_rg'),
             taxpayerId: this.getFieldValue(fields, 'second_person_taxpayerId'),
@@ -157,10 +201,22 @@ export class AcuityService {
             phone: this.getFieldValue(fields, 'second_person_phone'),
             fatherName: this.getFieldValue(fields, 'second_person_father_name'),
             motherName: this.getFieldValue(fields, 'second_person_mother_name'),
-            registryOffice: this.getFieldValue(fields, 'second_person_registry_office'),
-            registryBook: this.getFieldValue(fields, 'second_person_registry_book'),
-            registryPage: this.getFieldValue(fields, 'second_person_registry_page'),
-            registryTerm: this.getFieldValue(fields, 'second_person_registry_term')
+            registryOffice: this.getFieldValue(
+              fields,
+              'second_person_registry_office'
+            ),
+            registryBook: this.getFieldValue(
+              fields,
+              'second_person_registry_book'
+            ),
+            registryPage: this.getFieldValue(
+              fields,
+              'second_person_registry_page'
+            ),
+            registryTerm: this.getFieldValue(
+              fields,
+              'second_person_registry_term'
+            )
           }
         }
       };

@@ -19,6 +19,6 @@ Como agente, nunca execute migrações no banco de dados.
 A stack da aplicação é: typescript, vercel, nextjs 15, next auth 5, react 19, neon postgre, prisma, shadcnui e tailwind.
 
 Seja assertivo, crítico e não tenha medo de questionar e criticar o código existente ou outras instruções recebidas.
-Faça tudo em inglês e oque for aparecer no front-end e toast seja em português. 
-Não faça tipagem com any ou unknown, caso não tenha a tipagem, mesmo depois de você ter buscado a documentação e lido completa, faça a tipagem com unknown. 
-Não faça bloco de if {} com somente uma declaração. 
+Faça tudo em inglês e oque for aparecer no front-end e toast seja em português.
+Não faça tipagem com any ou unknown, caso não tenha a tipagem, mesmo depois de você ter buscado a documentação e lido completa, faça a tipagem com unknown.
+Não faça bloco de if {} com somente uma declaração.
