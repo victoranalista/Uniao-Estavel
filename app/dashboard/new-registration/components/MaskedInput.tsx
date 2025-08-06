@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { MaskedInputProps } from '../types/types';
-import { applyMask } from '../utils/constants';
+import { applyMask } from '@/lib/utils/index';
 
 export const MaskedInput = forwardRef<HTMLInputElement, MaskedInputProps>(
   ({ mask, value = '', onChange, ...props }, ref) => {
