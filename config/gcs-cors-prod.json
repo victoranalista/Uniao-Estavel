@@ -1,8 +1,0 @@
-[
-  {
-    "origin": ["https://financial-engine.cartoriocolorado.com.br/"],
-    "method": ["PUT", "POST", "GET"],
-    "responseHeader": ["Content-Type", "Authorization"],
-    "maxAgeSeconds": 3600
-  }
-]
