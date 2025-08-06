@@ -1,17 +1,59 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+model User {
+  id         Int              @id @default(autoincrement())
+  taxpayerId String           @unique
+  status     ActivationStatus 
+  versions   UserHistory[]    @relation("UserToUserHistories")
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  archivedAt DateTime?
+
+  @@index([status])
+  @@index([taxpayerId])
+  @@index([archivedAt])
+  @@index([status, archivedAt])
+}
+
+model UserHistory {
+  id             Int              @id @default(autoincrement())
+  version        Int              @default(1)
+  name           String
+  email          String
+  role           Role
+  password       String?
+  totpSecret     String?
+  totpEnabled    Boolean          @default(false)
+  totpVerifiedAt DateTime?
+  status         ActivationStatus 
+  userId         Int
+  user           User             @relation("UserToUserHistories", fields: [userId], references: [id], onDelete: Restrict)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  archivedAt     DateTime?
+
+  @@unique([userId, version])
+  @@index([version])
+  @@index([userId])
+  @@index([email, status])
+  @@index([archivedAt])
+  @@index([userId, version, archivedAt])
 }
 
 model Person {
   id              String                 @id @default(cuid())  
   logicalId       String                 @default(cuid())
   version         Int                    @default(1)
-  isActive        Boolean                @default(true)
+  status          ActivationStatus
   identity        PersonIdentity?          
   civilStatuses   PersonCivilStatus[]      
   addresses       PersonAddress[]          
@@ -23,24 +65,36 @@ model Person {
   declarations    DeclarationPerson[]    
   clientDocuments ClientDocument[]     
   createdAt       DateTime               @default(now())
-  deletedAt       DateTime?
+  updatedAt       DateTime               @updatedAt
+  archivedAt      DateTime?
 
   @@unique([logicalId, version])
+  @@index([status])
+  @@index([updatedAt])
+  @@index([archivedAt])
+  @@index([status, archivedAt])
+  @@index([logicalId, status])
   @@map("persons")
 }
 
 model PersonIdentity {
   id           String     @id @default(cuid())
   personId     String     @unique
-  fullName     String
-  nationality  String
-  birthDate    DateTime
-  birthPlace   String
+  fullName     String     @db.VarChar(200)
+  nationality  String     @db.VarChar(100)
+  birthDate    DateTime   @db.Date
+  birthPlace   String     @db.VarChar(200)
   taxId        String     @unique
-  person       Person     @relation(fields: [personId], references: [id])
+  person       Person     @relation(fields: [personId], references: [id], onDelete: Restrict)
   createdAt    DateTime   @default(now())
-  deletedAt    DateTime?
+  updatedAt    DateTime   @updatedAt
+  archivedAt   DateTime?
 
+  @@index([taxId])
+  @@index([fullName])
+  @@index([updatedAt])
+  @@index([archivedAt])
+  @@index([taxId, archivedAt])
   @@map("person_identity")
 }
 
@@ -48,11 +102,13 @@ model PersonCivilStatus {
   id          String   @id @default(cuid())
   personId    String
   status      String
-  person      Person   @relation(fields: [personId], references: [id])
+  person      Person   @relation(fields: [personId], references: [id], onDelete: Restrict)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
+  archivedAt  DateTime?
 
+  @@index([personId])
+  @@index([archivedAt])
   @@map("person_civil_status")
 }
 
@@ -65,22 +121,29 @@ model PersonAddress {
   neighborhood String
   city         String
   state        String
-  person       Person   @relation(fields: [personId], references: [id])
+  person       Person   @relation(fields: [personId], references: [id], onDelete: Restrict)
   createdAt    DateTime @default(now())
-  deletedAt    DateTime?
+  updatedAt    DateTime @updatedAt
+  archivedAt   DateTime?
 
+  @@index([personId])
+  @@index([city, state])
+  @@index([archivedAt])
   @@map("person_addresses")
 }
 
 model PersonContact {
   id        String   @id @default(cuid())
   personId  String   @unique
-  email     String   
-  phone     String
-  person    Person   @relation(fields: [personId], references: [id])  
+  email     String   @db.VarChar(255)
+  phone     String   @db.VarChar(20)
+  person    Person   @relation(fields: [personId], references: [id], onDelete: Restrict)  
   createdAt DateTime @default(now())
-  deletedAt DateTime?
+  updatedAt DateTime @updatedAt @default(now())
+  archivedAt DateTime?
 
+  @@index([email])
+  @@index([archivedAt])
   @@map("person_contact")
 }
 
@@ -88,10 +151,13 @@ model PersonDocument {
   id        String   @id @default(cuid())
   personId  String   @unique
   rg        String
-  person    Person   @relation(fields: [personId], references: [id]) 
+  person    Person   @relation(fields: [personId], references: [id], onDelete: Restrict) 
   createdAt DateTime @default(now())
-  deletedAt DateTime?
+  updatedAt DateTime @updatedAt @default(now())
+  archivedAt DateTime?
 
+  @@index([rg])
+  @@index([archivedAt])
   @@map("person_document")
 }
 
@@ -100,10 +166,12 @@ model PersonFamily {
   personId    String   @unique
   fatherName  String
   motherName  String
-  person      Person   @relation(fields: [personId], references: [id]) 
+  person      Person   @relation(fields: [personId], references: [id], onDelete: Restrict) 
   createdAt   DateTime @default(now())
-  deletedAt   DateTime?
+  updatedAt   DateTime @updatedAt
+  archivedAt  DateTime?
 
+  @@index([archivedAt])
   @@map("person_family")
 }
 
@@ -111,41 +179,51 @@ model PersonProfessionalData {
   id           String   @id @default(cuid())
   personId     String   @unique
   profession   String
-  person       Person   @relation(fields: [personId], references: [id]) 
+  person       Person   @relation(fields: [personId], references: [id], onDelete: Restrict) 
   createdAt    DateTime @default(now())
-  deletedAt    DateTime?
+  updatedAt    DateTime @updatedAt
+  archivedAt   DateTime?
 
+  @@index([archivedAt])
   @@map("person_professional")
 }
 
 model RegistryData {
   id             String   @id @default(cuid())
-  personId       String  @unique
+  personId       String   @unique
   registryOffice String
   registryBook   String
   registryPage   String
   registryTerm   String
-  person         Person   @relation(fields: [personId], references: [id])
+  person         Person   @relation(fields: [personId], references: [id], onDelete: Restrict)
   createdAt      DateTime @default(now())
-  deletedAt      DateTime?
+  updatedAt      DateTime @updatedAt
+  archivedAt     DateTime?
 
+  @@index([archivedAt])
   @@map("registry_data")
 }
 
 model DeclarationPerson {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   declarationId String
   personId      String
-  declaration   Declaration @relation(fields: [declarationId], references: [id])
-  person        Person      @relation(fields: [personId], references: [id])
-  createdAt     DateTime @default(now())
-  deletedAt     DateTime?
+  declaration   Declaration @relation(fields: [declarationId], references: [id], onDelete: Restrict)
+  person        Person      @relation(fields: [personId], references: [id], onDelete: Restrict)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  archivedAt    DateTime?
 
+  @@unique([declarationId, personId])
+  @@index([declarationId])
+  @@index([personId])
+  @@index([archivedAt])
   @@map("declaration_person")
 }
 
 model Declaration {
   id               String                 @id @default(cuid())
+  status           ActivationStatus       @default(ACTIVE)
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
   declarationDate  DateTime
@@ -153,59 +231,59 @@ model Declaration {
   state            String
   unionStartDate   DateTime
   propertyRegime   String
+  termNumber       String?
+  bookNumber       String?
   registryInfo     DeclarationRegistry?      
   prenuptial       PrenuptialAgreement?     
   history          DeclarationHistory[]      
   participants     DeclarationPerson[]       
-  drive           DeclarationDrive?      
+  drive            DeclarationDrive?      
   receipts         Receipt[]              
   clientDocuments  ClientDocument[]
   witnesses        Witness[]
   documents        Document[]      
-  deletedAt        DateTime?
+  archivedAt       DateTime?
 
+  @@index([status])
+  @@index([termNumber])
+  @@index([bookNumber])
+  @@index([declarationDate])
+  @@index([unionStartDate])
+  @@index([archivedAt])
   @@map("declarations")
 }
 
 model DeclarationRegistry {
-  id              String   @id @default(cuid())
-  declarationId   String   @unique
-  registryOffice  String
+  id              String      @id @default(cuid())
+  declarationId   String      @unique
   typeRegistry    String
   registrarName   String
-  declaration     Declaration @relation(fields: [declarationId], references: [id])
-  createdAt       DateTime @default(now())
-  deletedAt       DateTime?
+  declaration     Declaration @relation(fields: [declarationId], references: [id], onDelete: Restrict)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  archivedAt      DateTime?
 
+  @@index([typeRegistry])
+  @@index([registrarName])
+  @@index([archivedAt])
   @@map("declaration_registry")
 }
 
 model PrenuptialAgreement {
-  id             String   @id @default(cuid())
-  declarationId  String   @unique
+  id             String      @id @default(cuid())
+  declarationId  String      @unique
   pactDate       DateTime?
   pactOffice     String?
   pactBook       String?
   pactPage       String?
   pactTerm       String?
-  declaration    Declaration @relation(fields: [declarationId], references: [id])
-  createdAt      DateTime @default(now())
-  deletedAt      DateTime?
+  declaration    Declaration @relation(fields: [declarationId], references: [id], onDelete: Restrict)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  archivedAt     DateTime?
 
+  @@index([archivedAt])
   @@map("prenuptial_agreement")
-}
-
-model Drive {
-  id                         String   @id @default(cuid())
-  googleDriveId              String
-  googleDriveFolderId        String
-  googleDriveDocTaxpayerId   String
-  googleDriveDocRawId        String   @unique
-  googleDriveDocRegisteredId String   @unique
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
-
-  @@map("drive")
 }
 
 model Receipt {
@@ -213,25 +291,54 @@ model Receipt {
   declarationId   String
   receiptNumber   Int          
   fees            ReceiptFee[]
-  totalAmount     Float
+  totalAmount     Decimal       @db.Decimal(10, 2)
   driveFileId     String        @unique
-  declaration     Declaration   @relation(fields: [declarationId], references: [id])
+  declaration     Declaration   @relation(fields: [declarationId], references: [id], onDelete: Restrict)
   createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  archivedAt      DateTime?
 
   @@unique([declarationId, receiptNumber])
+  @@index([declarationId])
+  @@index([archivedAt])
+  @@index([declarationId, totalAmount])
   @@map("receipts")
 }
 
 model ReceiptFee {
   id         String    @id @default(cuid())
   receiptId  String
-  name       String
-  amount     Float
-  receipt    Receipt   @relation(fields: [receiptId], references: [id])
+  feeId      String
+  name       String    @db.VarChar(200)
+  amount     Decimal   @db.Decimal(10, 2)
+  receipt    Receipt   @relation(fields: [receiptId], references: [id], onDelete: Restrict)
+  fee        Fee       @relation(fields: [feeId], references: [id], onDelete: Restrict)
   createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  archivedAt DateTime?
 
+  @@index([receiptId])
+  @@index([feeId])
+  @@index([archivedAt])
   @@map("receipt_fees")
-  Fee Fee[]
+}
+
+model Fee {
+  id          String       @id @default(cuid())
+  name        String       @db.VarChar(200)
+  description String?      @db.Text
+  amount      Decimal      @db.Decimal(10, 2)
+  status      ActivationStatus @default(ACTIVE)
+  receipts    ReceiptFee[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  archivedAt  DateTime?
+
+  @@index([status])
+  @@index([name])
+  @@index([archivedAt])
+  @@index([status, amount])
+  @@map("fees")
 }
 
 model ClientDocument {
@@ -241,10 +348,16 @@ model ClientDocument {
   type           DocumentType
   driveFileId    String           @unique
   extractedData  Json?
-  person        Person      @relation(fields: [personId], references: [id])
-  declaration    Declaration      @relation(fields: [declarationId], references: [id])
+  person         Person           @relation(fields: [personId], references: [id], onDelete: Restrict)
+  declaration    Declaration      @relation(fields: [declarationId], references: [id], onDelete: Restrict)
   createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  archivedAt     DateTime?
 
+  @@index([personId])
+  @@index([declarationId])
+  @@index([type])
+  @@index([archivedAt])
   @@map("client_documents")
 }
 
@@ -254,18 +367,13 @@ model DeclarationDrive {
   driveFolderId       String
   registeredDocId     String
   rawDocumentsId      String
-  declaration         Declaration  @relation(fields: [declarationId], references: [id])
+  declaration         Declaration  @relation(fields: [declarationId], references: [id], onDelete: Restrict)
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
+  archivedAt          DateTime?
 
+  @@index([archivedAt])
   @@map("declaration_drive")
-}
-
-enum DocumentType {
-  CERTIFICATE
-  PERSONAL_DOCUMENT
-  PROOF_OF_ADDRESS
-  OTHER
 }
 
 model DeclarationHistory {
@@ -275,44 +383,15 @@ model DeclarationHistory {
   description    String
   averbation     String?
   updatedBy      String
-  updatedAt      DateTime   @default(now())
-  declaration    Declaration @relation(fields: [declarationId], references: [id])
-  deletedAt      DateTime?
+  declaration    Declaration @relation(fields: [declarationId], references: [id], onDelete: Restrict)
+  createdAt      DateTime    @default(now())
+  archivedAt     DateTime?
 
+  @@index([declarationId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([archivedAt])
   @@map("declaration_history")
-}
-
-model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  password      String?
-  googleId      String?   @unique
-  role          UserRole  @default(USER)
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@map("users")
-}
-
-enum UserRole {
-  ADMIN
-  MANAGER
-  USER
-}
-
-model Fee {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  amount      Float
-  active      Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  receipts    ReceiptFee[]
-
-  @@map("fees")
 }
 
 model Booking {
@@ -325,20 +404,19 @@ model Booking {
   firstPerson     Json
   secondPerson    Json
   documents       Json[]
-  acuity          AcuityData?      @relation(fields: [acuityId], references: [id])
+  acuity          AcuityData?      @relation(fields: [acuityId], references: [id], onDelete: Restrict)
   acuityId        String?          @unique
   extractedData   Json?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  archivedAt      DateTime?
 
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([expiresAt])
+  @@index([archivedAt])
+  @@index([status, paymentStatus])
   @@map("bookings")
-}
-
-enum BookingStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  CANCELLED
 }
 
 model AcuityData {
@@ -348,38 +426,115 @@ model AcuityData {
   typeId         Int
   syncToken      String
   booking        Booking?
-}
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  archivedAt     DateTime?
 
-enum PaymentStatus {
-  PENDING
-  PAID
-  CANCELLED
+  @@index([appointmentId])
+  @@index([archivedAt])
 }
 
 model Witness {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   declarationId String
   name          String
   profession    String
   documentType  String
   documentNumber String
   address       String
-  declaration   Declaration @relation(fields: [declarationId], references: [id])
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  declaration   Declaration @relation(fields: [declarationId], references: [id], onDelete: Restrict)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  archivedAt    DateTime?
 
+  @@index([declarationId])
+  @@index([archivedAt])
   @@map("witnesses")
 }
 
 model Document {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   declarationId String
   type          String
   imageUrl      String
-  verified      Boolean  @default(false)
-  declaration   Declaration @relation(fields: [declarationId], references: [id])
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  verified      Boolean     @default(false)
+  declaration   Declaration @relation(fields: [declarationId], references: [id], onDelete: Restrict)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  archivedAt    DateTime?
 
+  @@index([declarationId])
+  @@index([type])
+  @@index([verified])
+  @@index([archivedAt])
+  @@index([declarationId, verified])
   @@map("documents")
+}
+
+model BookControl {
+  id          Int      @id @default(1)
+  currentBook Int      @default(1)
+  currentPage Int      @default(1)
+  currentTerm Int      @default(202)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("book_control")
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  tableName    String
+  recordId     String
+  operation    AuditOperation
+  fieldName    String?
+  oldValue     String?
+  newValue     String?
+  userId       String?
+  userName     String?
+  timestamp    DateTime @default(now())
+  metadata     Json?
+
+  @@index([tableName, recordId])
+  @@index([operation])
+  @@index([timestamp])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+enum ActivationStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum BookingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+enum DocumentType {
+  CERTIFICATE
+  PERSONAL_DOCUMENT
+  PROOF_OF_ADDRESS
+  OTHER
+}
+
+enum AuditOperation {
+  CREATE
+  UPDATE
+  ARCHIVE
 }
